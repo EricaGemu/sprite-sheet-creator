@@ -43,6 +43,17 @@ interface Frame {
   contentBounds: BoundingBox;
 }
 
+interface SpriteArchiveEntry {
+  id: string;
+  name: string;
+  createdAt: number;
+  characterImageUrl: string | null;
+  walkFrames: Frame[];
+  dodgeFrames: Frame[];
+  attackFrames: Frame[];
+  idleFrames: Frame[];
+}
+
 // Get bounding box of non-transparent pixels in image data
 function getContentBounds(ctx: CanvasRenderingContext2D, width: number, height: number): BoundingBox {
   const imageData = ctx.getImageData(0, 0, width, height);
@@ -92,14 +103,14 @@ export default function Home() {
 
   // Step 2: Sprite sheet generation (walk + jump + attack + idle)
   const [walkSpriteSheetUrl, setWalkSpriteSheetUrl] = useState<string | null>(null);
-  const [jumpSpriteSheetUrl, setJumpSpriteSheetUrl] = useState<string | null>(null);
+  const [dodgeSpriteSheetUrl, setDodgeSpriteSheetUrl] = useState<string | null>(null);
   const [attackSpriteSheetUrl, setAttackSpriteSheetUrl] = useState<string | null>(null);
   const [idleSpriteSheetUrl, setIdleSpriteSheetUrl] = useState<string | null>(null);
   const [isGeneratingSpriteSheet, setIsGeneratingSpriteSheet] = useState(false);
 
   // Step 3: Background removal (walk + jump + attack + idle)
   const [walkBgRemovedUrl, setWalkBgRemovedUrl] = useState<string | null>(null);
-  const [jumpBgRemovedUrl, setJumpBgRemovedUrl] = useState<string | null>(null);
+  const [dodgeBgRemovedUrl, setDodgeBgRemovedUrl] = useState<string | null>(null);
   const [attackBgRemovedUrl, setAttackBgRemovedUrl] = useState<string | null>(null);
   const [idleBgRemovedUrl, setIdleBgRemovedUrl] = useState<string | null>(null);
   const [isRemovingBg, setIsRemovingBg] = useState(false);
@@ -114,13 +125,13 @@ export default function Home() {
   const walkSpriteSheetRef = useRef<HTMLImageElement>(null);
 
   // Step 4: Frame extraction (grid-based) - jump
-  const [jumpGridCols, setJumpGridCols] = useState(2);
-  const [jumpGridRows, setJumpGridRows] = useState(2);
-  const [jumpVerticalDividers, setJumpVerticalDividers] = useState<number[]>([]);
-  const [jumpHorizontalDividers, setJumpHorizontalDividers] = useState<number[]>([]);
-  const [jumpExtractedFrames, setJumpExtractedFrames] = useState<Frame[]>([]);
-  const [jumpSpriteSheetDimensions, setJumpSpriteSheetDimensions] = useState({ width: 0, height: 0 });
-  const jumpSpriteSheetRef = useRef<HTMLImageElement>(null);
+  const [dodgeGridCols, setDodgeGridCols] = useState(2);
+  const [dodgeGridRows, setDodgeGridRows] = useState(2);
+  const [dodgeVerticalDividers, setDodgeVerticalDividers] = useState<number[]>([]);
+  const [dodgeHorizontalDividers, setDodgeHorizontalDividers] = useState<number[]>([]);
+  const [dodgeExtractedFrames, setDodgeExtractedFrames] = useState<Frame[]>([]);
+  const [dodgeSpriteSheetDimensions, setDodgeSpriteSheetDimensions] = useState({ width: 0, height: 0 });
+  const dodgeSpriteSheetRef = useRef<HTMLImageElement>(null);
 
   // Step 4: Frame extraction (grid-based) - attack
   const [attackGridCols, setAttackGridCols] = useState(2);
@@ -143,7 +154,7 @@ export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Which sprite sheet is being edited
-  const [activeSheet, setActiveSheet] = useState<"walk" | "jump" | "attack" | "idle">("walk");
+  const [activeSheet, setActiveSheet] = useState<"walk" | "dodge" | "attack" | "idle">("walk");
 
   // Step 5: Animation preview
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -160,6 +171,16 @@ export default function Home() {
     layer3Url: string | null;
   }>({ layer1Url: null, layer2Url: null, layer3Url: null });
   const [isGeneratingBackground, setIsGeneratingBackground] = useState(false);
+
+  // Archive
+  const [archive, setArchive] = useState<SpriteArchiveEntry[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem("sprite-archive") || "[]");
+    } catch {
+      return [];
+    }
+  });
 
   // Error handling
   const [error, setError] = useState<string | null>(null);
@@ -183,20 +204,20 @@ export default function Home() {
 
   // Initialize jump divider positions when grid changes
   useEffect(() => {
-    if (jumpSpriteSheetDimensions.width > 0) {
+    if (dodgeSpriteSheetDimensions.width > 0) {
       const vPositions: number[] = [];
-      for (let i = 1; i < jumpGridCols; i++) {
-        vPositions.push((i / jumpGridCols) * 100);
+      for (let i = 1; i < dodgeGridCols; i++) {
+        vPositions.push((i / dodgeGridCols) * 100);
       }
-      setJumpVerticalDividers(vPositions);
+      setDodgeVerticalDividers(vPositions);
 
       const hPositions: number[] = [];
-      for (let i = 1; i < jumpGridRows; i++) {
-        hPositions.push((i / jumpGridRows) * 100);
+      for (let i = 1; i < dodgeGridRows; i++) {
+        hPositions.push((i / dodgeGridRows) * 100);
       }
-      setJumpHorizontalDividers(hPositions);
+      setDodgeHorizontalDividers(hPositions);
     }
-  }, [jumpGridCols, jumpGridRows, jumpSpriteSheetDimensions.width]);
+  }, [dodgeGridCols, dodgeGridRows, dodgeSpriteSheetDimensions.width]);
 
   // Initialize attack divider positions when grid changes
   useEffect(() => {
@@ -241,10 +262,10 @@ export default function Home() {
 
   // Extract jump frames when divider positions change
   useEffect(() => {
-    if (jumpBgRemovedUrl && jumpSpriteSheetDimensions.width > 0) {
-      extractJumpFrames();
+    if (dodgeBgRemovedUrl && dodgeSpriteSheetDimensions.width > 0) {
+      extractDodgeFrames();
     }
-  }, [jumpBgRemovedUrl, jumpVerticalDividers, jumpHorizontalDividers, jumpSpriteSheetDimensions]);
+  }, [dodgeBgRemovedUrl, dodgeVerticalDividers, dodgeHorizontalDividers, dodgeSpriteSheetDimensions]);
 
   // Extract attack frames when divider positions change
   useEffect(() => {
@@ -400,7 +421,7 @@ export default function Home() {
         fetch("/api/generate-sprite-sheet", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ characterImageUrl, type: "jump" }),
+          body: JSON.stringify({ characterImageUrl, type: "dodge" }),
         }),
         fetch("/api/generate-sprite-sheet", {
           method: "POST",
@@ -433,7 +454,7 @@ export default function Home() {
       }
 
       setWalkSpriteSheetUrl(walkData.imageUrl);
-      setJumpSpriteSheetUrl(jumpData.imageUrl);
+      setDodgeSpriteSheetUrl(jumpData.imageUrl);
       setAttackSpriteSheetUrl(attackData.imageUrl);
       setIdleSpriteSheetUrl(idleData.imageUrl);
       setCompletedSteps((prev) => new Set([...prev, 1]));
@@ -445,9 +466,9 @@ export default function Home() {
     }
   };
 
-  const [regeneratingSpriteSheet, setRegeneratingSpriteSheet] = useState<"walk" | "jump" | "attack" | "idle" | null>(null);
+  const [regeneratingSpriteSheet, setRegeneratingSpriteSheet] = useState<"walk" | "dodge" | "attack" | "idle" | null>(null);
 
-  const regenerateSpriteSheet = async (type: "walk" | "jump" | "attack" | "idle") => {
+  const regenerateSpriteSheet = async (type: "walk" | "dodge" | "attack" | "idle") => {
     if (!characterImageUrl) return;
 
     setError(null);
@@ -468,8 +489,8 @@ export default function Home() {
 
       if (type === "walk") {
         setWalkSpriteSheetUrl(data.imageUrl);
-      } else if (type === "jump") {
-        setJumpSpriteSheetUrl(data.imageUrl);
+      } else if (type === "dodge") {
+        setDodgeSpriteSheetUrl(data.imageUrl);
       } else if (type === "attack") {
         setAttackSpriteSheetUrl(data.imageUrl);
       } else if (type === "idle") {
@@ -483,7 +504,7 @@ export default function Home() {
   };
 
   const removeBackground = async () => {
-    if (!walkSpriteSheetUrl || !jumpSpriteSheetUrl || !attackSpriteSheetUrl || !idleSpriteSheetUrl) return;
+    if (!walkSpriteSheetUrl || !dodgeSpriteSheetUrl || !attackSpriteSheetUrl || !idleSpriteSheetUrl) return;
 
     setError(null);
     setIsRemovingBg(true);
@@ -499,7 +520,7 @@ export default function Home() {
         fetch("/api/remove-background", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: jumpSpriteSheetUrl }),
+          body: JSON.stringify({ imageUrl: dodgeSpriteSheetUrl }),
         }),
         fetch("/api/remove-background", {
           method: "POST",
@@ -532,11 +553,11 @@ export default function Home() {
       }
 
       setWalkBgRemovedUrl(walkData.imageUrl);
-      setJumpBgRemovedUrl(jumpData.imageUrl);
+      setDodgeBgRemovedUrl(jumpData.imageUrl);
       setAttackBgRemovedUrl(attackData.imageUrl);
       setIdleBgRemovedUrl(idleData.imageUrl);
       setWalkSpriteSheetDimensions({ width: walkData.width, height: walkData.height });
-      setJumpSpriteSheetDimensions({ width: jumpData.width, height: jumpData.height });
+      setDodgeSpriteSheetDimensions({ width: jumpData.width, height: jumpData.height });
       setAttackSpriteSheetDimensions({ width: attackData.width, height: attackData.height });
       setIdleSpriteSheetDimensions({ width: idleData.width, height: idleData.height });
       setCompletedSteps((prev) => new Set([...prev, 2]));
@@ -668,16 +689,16 @@ export default function Home() {
     img.src = walkBgRemovedUrl;
   }, [walkBgRemovedUrl, walkVerticalDividers, walkHorizontalDividers]);
 
-  const extractJumpFrames = useCallback(async () => {
-    if (!jumpBgRemovedUrl) return;
+  const extractDodgeFrames = useCallback(async () => {
+    if (!dodgeBgRemovedUrl) return;
 
     const img = new Image();
     img.crossOrigin = "anonymous";
     
     img.onload = () => {
       const frames: Frame[] = [];
-      const colPositions = [0, ...jumpVerticalDividers, 100];
-      const rowPositions = [0, ...jumpHorizontalDividers, 100];
+      const colPositions = [0, ...dodgeVerticalDividers, 100];
+      const rowPositions = [0, ...dodgeHorizontalDividers, 100];
 
       for (let row = 0; row < rowPositions.length - 1; row++) {
         const startY = Math.round((rowPositions[row] / 100) * img.height);
@@ -709,11 +730,11 @@ export default function Home() {
         }
       }
 
-      setJumpExtractedFrames(frames);
+      setDodgeExtractedFrames(frames);
     };
 
-    img.src = jumpBgRemovedUrl;
-  }, [jumpBgRemovedUrl, jumpVerticalDividers, jumpHorizontalDividers]);
+    img.src = dodgeBgRemovedUrl;
+  }, [dodgeBgRemovedUrl, dodgeVerticalDividers, dodgeHorizontalDividers]);
 
   const extractAttackFrames = useCallback(async () => {
     if (!attackBgRemovedUrl) return;
@@ -862,20 +883,20 @@ export default function Home() {
   };
 
   // Jump vertical divider drag handling
-  const handleJumpVerticalDividerDrag = (index: number, e: React.MouseEvent) => {
+  const handleDodgeVerticalDividerDrag = (index: number, e: React.MouseEvent) => {
     e.preventDefault();
-    const imgRect = jumpSpriteSheetRef.current?.getBoundingClientRect();
+    const imgRect = dodgeSpriteSheetRef.current?.getBoundingClientRect();
     if (!imgRect) return;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const relativeX = moveEvent.clientX - imgRect.left;
       const percentage = Math.max(0, Math.min(100, (relativeX / imgRect.width) * 100));
 
-      const newPositions = [...jumpVerticalDividers];
+      const newPositions = [...dodgeVerticalDividers];
       const minPos = index > 0 ? newPositions[index - 1] + 2 : 2;
       const maxPos = index < newPositions.length - 1 ? newPositions[index + 1] - 2 : 98;
       newPositions[index] = Math.max(minPos, Math.min(maxPos, percentage));
-      setJumpVerticalDividers(newPositions);
+      setDodgeVerticalDividers(newPositions);
     };
 
     const handleMouseUp = () => {
@@ -888,20 +909,20 @@ export default function Home() {
   };
 
   // Jump horizontal divider drag handling
-  const handleJumpHorizontalDividerDrag = (index: number, e: React.MouseEvent) => {
+  const handleDodgeHorizontalDividerDrag = (index: number, e: React.MouseEvent) => {
     e.preventDefault();
-    const imgRect = jumpSpriteSheetRef.current?.getBoundingClientRect();
+    const imgRect = dodgeSpriteSheetRef.current?.getBoundingClientRect();
     if (!imgRect) return;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const relativeY = moveEvent.clientY - imgRect.top;
       const percentage = Math.max(0, Math.min(100, (relativeY / imgRect.height) * 100));
 
-      const newPositions = [...jumpHorizontalDividers];
+      const newPositions = [...dodgeHorizontalDividers];
       const minPos = index > 0 ? newPositions[index - 1] + 2 : 2;
       const maxPos = index < newPositions.length - 1 ? newPositions[index + 1] - 2 : 98;
       newPositions[index] = Math.max(minPos, Math.min(maxPos, percentage));
-      setJumpHorizontalDividers(newPositions);
+      setDodgeHorizontalDividers(newPositions);
     };
 
     const handleMouseUp = () => {
@@ -1026,11 +1047,11 @@ export default function Home() {
     link.click();
   };
 
-  const exportJumpSpriteSheet = () => {
-    if (!jumpBgRemovedUrl) return;
+  const exportDodgeSpriteSheet = () => {
+    if (!dodgeBgRemovedUrl) return;
     const link = document.createElement("a");
-    link.href = jumpBgRemovedUrl;
-    link.download = "jump-sprite-sheet.png";
+    link.href = dodgeBgRemovedUrl;
+    link.download = "dodge-sprite-sheet.png";
     link.click();
   };
 
@@ -1057,10 +1078,10 @@ export default function Home() {
       link.download = `walk-frame-${index + 1}.png`;
       link.click();
     });
-    jumpExtractedFrames.forEach((frame, index) => {
+    dodgeExtractedFrames.forEach((frame, index) => {
       const link = document.createElement("a");
       link.href = frame.dataUrl;
-      link.download = `jump-frame-${index + 1}.png`;
+      link.download = `dodge-frame-${index + 1}.png`;
       link.click();
     });
     attackExtractedFrames.forEach((frame, index) => {
@@ -1085,6 +1106,46 @@ export default function Home() {
   const proceedToSandbox = () => {
     setCompletedSteps((prev) => new Set([...prev, 4, 5]));
     setCurrentStep(6);
+  };
+
+  const saveToArchive = () => {
+    if (!walkExtractedFrames.length && !dodgeExtractedFrames.length) return;
+    const name = characterPrompt.trim()
+      ? characterPrompt.slice(0, 50)
+      : new Date().toLocaleString();
+    const entry: SpriteArchiveEntry = {
+      id: Date.now().toString(),
+      name,
+      createdAt: Date.now(),
+      characterImageUrl,
+      walkFrames: walkExtractedFrames,
+      dodgeFrames: dodgeExtractedFrames,
+      attackFrames: attackExtractedFrames,
+      idleFrames: idleExtractedFrames,
+    };
+    const updated = [entry, ...archive];
+    setArchive(updated);
+    try {
+      localStorage.setItem("sprite-archive", JSON.stringify(updated));
+    } catch {
+      setError("Archive storage is full. Please delete some entries.");
+    }
+  };
+
+  const loadFromArchive = (entry: SpriteArchiveEntry) => {
+    setWalkExtractedFrames(entry.walkFrames);
+    setDodgeExtractedFrames(entry.dodgeFrames);
+    setAttackExtractedFrames(entry.attackFrames);
+    setIdleExtractedFrames(entry.idleFrames);
+    if (entry.characterImageUrl) setCharacterImageUrl(entry.characterImageUrl);
+    setCompletedSteps(new Set([1, 2, 3, 4, 5, 6]));
+    setCurrentStep(6);
+  };
+
+  const deleteFromArchive = (id: string) => {
+    const updated = archive.filter((e) => e.id !== id);
+    setArchive(updated);
+    localStorage.setItem("sprite-archive", JSON.stringify(updated));
   };
 
   return (
@@ -1291,7 +1352,56 @@ export default function Home() {
                 ? "Convert to Pixel Art"
                 : "Generate Character"}
             </button>
+            {characterInputMode === "image" && inputImageUrl && (
+              <button
+                className="btn btn-secondary"
+                onClick={() => setCharacterImageUrl(inputImageUrl)}
+                disabled={isGeneratingCharacter}
+              >
+                Use Image Directly
+              </button>
+            )}
           </div>
+
+          {archive.length > 0 && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1.5rem 0" }}>
+                <div style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
+                <span style={{ color: "var(--text-tertiary)", fontSize: "0.85rem" }}>or load from archive</span>
+                <div style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {archive.map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.6rem 0.75rem",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    {entry.characterImageUrl && (
+                      <img
+                        src={entry.characterImageUrl}
+                        alt="character"
+                        style={{ width: 40, height: 40, objectFit: "contain", imageRendering: "pixelated", borderRadius: 4, background: "var(--bg-tertiary)" }}
+                      />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.9rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{new Date(entry.createdAt).toLocaleString()}</div>
+                    </div>
+                    <button className="btn btn-success" style={{ padding: "0.3rem 0.7rem", fontSize: "0.8rem" }} onClick={() => loadFromArchive(entry)}>Load</button>
+                    <button className="btn btn-secondary" style={{ padding: "0.3rem 0.7rem", fontSize: "0.8rem" }} onClick={() => deleteFromArchive(entry.id)}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {isGeneratingCharacter && (
             <div className="loading">
@@ -1347,7 +1457,7 @@ export default function Home() {
           </h2>
 
           <p className="description-text">
-            Walk, jump, and attack sprite sheets have been generated. If poses don&apos;t look right, try regenerating.
+            Walk, dodge, and attack sprite sheets have been generated. If poses don&apos;t look right, try regenerating.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
@@ -1368,19 +1478,19 @@ export default function Home() {
               </button>
             </div>
             <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Jump (4 frames)</h4>
-              {jumpSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "jump" ? 0.5 : 1 }}>
-                  <img src={jumpSpriteSheetUrl} alt="Jump sprite sheet" />
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Dodge (4 frames)</h4>
+              {dodgeSpriteSheetUrl && (
+                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "dodge" ? 0.5 : 1 }}>
+                  <img src={dodgeSpriteSheetUrl} alt="Dodge sprite sheet" />
                 </div>
               )}
               <button
                 className="btn btn-secondary"
-                onClick={() => regenerateSpriteSheet("jump")}
+                onClick={() => regenerateSpriteSheet("dodge")}
                 disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg}
                 style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}
               >
-                {regeneratingSpriteSheet === "jump" ? "Regenerating..." : "Regen Jump"}
+                {regeneratingSpriteSheet === "dodge" ? "Regenerating..." : "Regen Dodge"}
               </button>
             </div>
             <div>
@@ -1440,7 +1550,7 @@ export default function Home() {
             <button
               className="btn btn-success"
               onClick={removeBackground}
-              disabled={isRemovingBg || isGeneratingSpriteSheet || !walkSpriteSheetUrl || !jumpSpriteSheetUrl || !attackSpriteSheetUrl}
+              disabled={isRemovingBg || isGeneratingSpriteSheet || !walkSpriteSheetUrl || !dodgeSpriteSheetUrl || !attackSpriteSheetUrl}
             >
               {isRemovingBg ? "Removing Backgrounds..." : "Remove Backgrounds →"}
             </button>
@@ -1477,10 +1587,10 @@ export default function Home() {
               )}
             </div>
             <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Jump</h4>
-              {jumpBgRemovedUrl && (
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Dodge</h4>
+              {dodgeBgRemovedUrl && (
                 <div className="image-preview" style={{ margin: 0 }}>
-                  <img src={jumpBgRemovedUrl} alt="Jump sprite sheet with background removed" />
+                  <img src={dodgeBgRemovedUrl} alt="Dodge sprite sheet with background removed" />
                 </div>
               )}
             </div>
@@ -1534,10 +1644,10 @@ export default function Home() {
               Walk Cycle
             </button>
             <button
-              className={`btn ${activeSheet === "jump" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setActiveSheet("jump")}
+              className={`btn ${activeSheet === "dodge" ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setActiveSheet("dodge")}
             >
-              Jump
+              Dodge
             </button>
             <button
               className={`btn ${activeSheet === "attack" ? "btn-primary" : "btn-secondary"}`}
@@ -1630,61 +1740,61 @@ export default function Home() {
           )}
 
           {/* Jump frame extraction */}
-          {activeSheet === "jump" && (
+          {activeSheet === "dodge" && (
             <>
               <div className="frame-controls">
-                <label htmlFor="jumpGridCols">Columns:</label>
+                <label htmlFor="dodgeGridCols">Columns:</label>
                 <input
-                  id="jumpGridCols"
+                  id="dodgeGridCols"
                   type="number"
                   className="frame-count-input"
                   min={1}
                   max={8}
-                  value={jumpGridCols}
-                  onChange={(e) => setJumpGridCols(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))}
+                  value={dodgeGridCols}
+                  onChange={(e) => setDodgeGridCols(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))}
                 />
-                <label htmlFor="jumpGridRows" style={{ marginLeft: "1rem" }}>Rows:</label>
+                <label htmlFor="dodgeGridRows" style={{ marginLeft: "1rem" }}>Rows:</label>
                 <input
-                  id="jumpGridRows"
+                  id="dodgeGridRows"
                   type="number"
                   className="frame-count-input"
                   min={1}
                   max={8}
-                  value={jumpGridRows}
-                  onChange={(e) => setJumpGridRows(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))}
+                  value={dodgeGridRows}
+                  onChange={(e) => setDodgeGridRows(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))}
                 />
                 <span style={{ marginLeft: "1rem", color: "var(--text-tertiary)", fontSize: "0.875rem" }}>
-                  ({jumpGridCols * jumpGridRows} frames)
+                  ({dodgeGridCols * dodgeGridRows} frames)
                 </span>
               </div>
 
-              {jumpBgRemovedUrl && (
+              {dodgeBgRemovedUrl && (
                 <div className="frame-extractor">
                   <div className="sprite-sheet-container">
                     <img
-                      ref={jumpSpriteSheetRef}
-                      src={jumpBgRemovedUrl}
-                      alt="Jump sprite sheet"
+                      ref={dodgeSpriteSheetRef}
+                      src={dodgeBgRemovedUrl}
+                      alt="Dodge sprite sheet"
                       onLoad={(e) => {
                         const img = e.target as HTMLImageElement;
-                        setJumpSpriteSheetDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+                        setDodgeSpriteSheetDimensions({ width: img.naturalWidth, height: img.naturalHeight });
                       }}
                     />
                     <div className="divider-overlay">
-                      {jumpVerticalDividers.map((pos, index) => (
+                      {dodgeVerticalDividers.map((pos, index) => (
                         <div
                           key={`jv-${index}`}
                           className="divider-line divider-vertical"
                           style={{ left: `${pos}%` }}
-                          onMouseDown={(e) => handleJumpVerticalDividerDrag(index, e)}
+                          onMouseDown={(e) => handleDodgeVerticalDividerDrag(index, e)}
                         />
                       ))}
-                      {jumpHorizontalDividers.map((pos, index) => (
+                      {dodgeHorizontalDividers.map((pos, index) => (
                         <div
                           key={`jh-${index}`}
                           className="divider-line divider-horizontal"
                           style={{ top: `${pos}%` }}
-                          onMouseDown={(e) => handleJumpHorizontalDividerDrag(index, e)}
+                          onMouseDown={(e) => handleDodgeHorizontalDividerDrag(index, e)}
                         />
                       ))}
                     </div>
@@ -1692,12 +1802,12 @@ export default function Home() {
                 </div>
               )}
 
-              {jumpExtractedFrames.length > 0 && (
+              {dodgeExtractedFrames.length > 0 && (
                 <div className="frames-preview">
-                  {jumpExtractedFrames.map((frame, index) => (
+                  {dodgeExtractedFrames.map((frame, index) => (
                     <div key={index} className="frame-thumb">
-                      <img src={frame.dataUrl} alt={`Jump frame ${index + 1}`} />
-                      <div className="frame-label">Jump {index + 1}</div>
+                      <img src={frame.dataUrl} alt={`Dodge frame ${index + 1}`} />
+                      <div className="frame-label">Dodge {index + 1}</div>
                     </div>
                   ))}
                 </div>
@@ -1864,7 +1974,7 @@ export default function Home() {
             <button
               className="btn btn-success"
               onClick={proceedToSandbox}
-              disabled={walkExtractedFrames.length === 0 || jumpExtractedFrames.length === 0 || attackExtractedFrames.length === 0 || idleExtractedFrames.length === 0}
+              disabled={walkExtractedFrames.length === 0 || dodgeExtractedFrames.length === 0 || attackExtractedFrames.length === 0 || idleExtractedFrames.length === 0}
             >
               Try in Sandbox →
             </button>
@@ -1880,7 +1990,7 @@ export default function Home() {
             Preview & Export
           </h2>
 
-          <p className="description-text">Walk animation preview. Test both walk and jump in the sandbox!</p>
+          <p className="description-text">Walk animation preview. Test walk, dodge, and attack in the sandbox!</p>
 
           <div className="animation-preview">
             <div className="animation-canvas-container">
@@ -1933,11 +2043,11 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Jump Frames</h4>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Dodge Frames</h4>
               <div className="frames-preview" style={{ margin: 0, justifyContent: "flex-start" }}>
-                {jumpExtractedFrames.map((frame, index) => (
+                {dodgeExtractedFrames.map((frame, index) => (
                   <div key={index} className="frame-thumb">
-                    <img src={frame.dataUrl} alt={`Jump ${index + 1}`} />
+                    <img src={frame.dataUrl} alt={`Dodge ${index + 1}`} />
                     <div className="frame-label">{index + 1}</div>
                   </div>
                 ))}
@@ -1973,8 +2083,8 @@ export default function Home() {
               <button className="btn btn-primary" onClick={exportWalkSpriteSheet}>
                 Walk Sheet
               </button>
-              <button className="btn btn-primary" onClick={exportJumpSpriteSheet}>
-                Jump Sheet
+              <button className="btn btn-primary" onClick={exportDodgeSpriteSheet}>
+                Dodge Sheet
               </button>
               <button className="btn btn-primary" onClick={exportAttackSpriteSheet}>
                 Attack Sheet
@@ -2014,7 +2124,7 @@ export default function Home() {
           </h2>
 
           <p className="description-text">
-            Walk, jump, and attack with your character! Use the keyboard to control movement.
+            Walk, dodge, and attack with your character! Use the keyboard to control movement.
           </p>
 
           {/* Background mode tabs */}
@@ -2120,7 +2230,7 @@ export default function Home() {
             }>
               <PixiSandbox
                 walkFrames={walkExtractedFrames}
-                jumpFrames={jumpExtractedFrames}
+                dodgeFrames={dodgeExtractedFrames}
                 attackFrames={attackExtractedFrames}
                 idleFrames={idleExtractedFrames}
                 fps={fps}
@@ -2130,7 +2240,7 @@ export default function Home() {
           </div>
 
           <div className="keyboard-hint" style={{ marginTop: "1rem" }}>
-            <kbd>A</kbd>/<kbd>←</kbd> walk left | <kbd>D</kbd>/<kbd>→</kbd> walk right | <kbd>W</kbd>/<kbd>↑</kbd> jump | <kbd>J</kbd> attack
+            <kbd>A</kbd>/<kbd>←</kbd> walk left | <kbd>D</kbd>/<kbd>→</kbd> walk right | <kbd>Shift</kbd> dodge | <kbd>J</kbd> attack
           </div>
 
           <div className="animation-controls" style={{ marginTop: "1rem" }}>
@@ -2151,21 +2261,28 @@ export default function Home() {
             <button className="btn btn-secondary" onClick={() => setCurrentStep(4)}>
               ← Back to Frame Extraction
             </button>
+            <button
+              className="btn btn-primary"
+              onClick={saveToArchive}
+              disabled={!walkExtractedFrames.length && !dodgeExtractedFrames.length}
+            >
+              Save to Archive
+            </button>
             <button className="btn btn-secondary" onClick={() => {
               // Reset everything
               setCurrentStep(1);
               setCompletedSteps(new Set());
               setCharacterImageUrl(null);
               setWalkSpriteSheetUrl(null);
-              setJumpSpriteSheetUrl(null);
+              setDodgeSpriteSheetUrl(null);
               setAttackSpriteSheetUrl(null);
               setIdleSpriteSheetUrl(null);
               setWalkBgRemovedUrl(null);
-              setJumpBgRemovedUrl(null);
+              setDodgeBgRemovedUrl(null);
               setAttackBgRemovedUrl(null);
               setIdleBgRemovedUrl(null);
               setWalkExtractedFrames([]);
-              setJumpExtractedFrames([]);
+              setDodgeExtractedFrames([]);
               setAttackExtractedFrames([]);
               setIdleExtractedFrames([]);
               setCharacterPrompt("");

@@ -24,7 +24,7 @@ interface CustomBackgroundLayers {
 
 interface PixiSandboxProps {
   walkFrames: Frame[];
-  jumpFrames: Frame[];
+  dodgeFrames: Frame[];
   attackFrames: Frame[];
   idleFrames: Frame[];
   fps: number;
@@ -43,39 +43,39 @@ const DEFAULT_PARALLAX_LAYERS = [
 // Custom parallax layer speeds (3 layers)
 const CUSTOM_PARALLAX_SPEEDS = [0, 0.3, 0.6];
 
-// Jump physics constants
-const JUMP_VELOCITY = -12;
-const GRAVITY = 0.6;
+// Dodge constants
+const DODGE_SPEED = 8;
+const DODGE_DURATION = 0.35; // seconds
 
-export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idleFrames, fps, customBackgroundLayers }: PixiSandboxProps) {
+export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idleFrames, fps, customBackgroundLayers }: PixiSandboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const characterState = useRef({
     x: 400,
     y: 0,
-    velocityY: 0,
     direction: "right" as "left" | "right",
     isWalking: false,
-    isJumping: false,
+    isDodging: false,
     isAttacking: false,
     walkFrameIndex: 0,
-    jumpFrameIndex: 0,
+    dodgeFrameIndex: 0,
     attackFrameIndex: 0,
     idleFrameIndex: 0,
     frameTime: 0,
-    jumpFrameTime: 0,
+    dodgeFrameTime: 0,
+    dodgeElapsed: 0,
     attackFrameTime: 0,
     idleFrameTime: 0,
   });
   const keysPressed = useRef<Set<string>>(new Set());
   const animationRef = useRef<number>(0);
   const walkImagesRef = useRef<HTMLImageElement[]>([]);
-  const jumpImagesRef = useRef<HTMLImageElement[]>([]);
+  const dodgeImagesRef = useRef<HTMLImageElement[]>([]);
   const attackImagesRef = useRef<HTMLImageElement[]>([]);
   const idleImagesRef = useRef<HTMLImageElement[]>([]);
   // Store frame metadata for bounding box info
   const walkFrameDataRef = useRef<Frame[]>([]);
-  const jumpFrameDataRef = useRef<Frame[]>([]);
+  const dodgeFrameDataRef = useRef<Frame[]>([]);
   const attackFrameDataRef = useRef<Frame[]>([]);
   const idleFrameDataRef = useRef<Frame[]>([]);
   const bgLayersRef = useRef<HTMLImageElement[]>([]);
@@ -193,11 +193,11 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
     }
   }, [walkFrames]);
 
-  // Load jump sprite frames
+  // Load dodge sprite frames
   useEffect(() => {
     const loadImages = async () => {
       const images: HTMLImageElement[] = [];
-      for (const frame of jumpFrames) {
+      for (const frame of dodgeFrames) {
         const img = new Image();
         img.src = frame.dataUrl;
         await new Promise((resolve) => {
@@ -205,14 +205,14 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
         });
         images.push(img);
       }
-      jumpImagesRef.current = images;
-      jumpFrameDataRef.current = jumpFrames;
+      dodgeImagesRef.current = images;
+      dodgeFrameDataRef.current = dodgeFrames;
     };
     
-    if (jumpFrames.length > 0) {
+    if (dodgeFrames.length > 0) {
       loadImages();
     }
-  }, [jumpFrames]);
+  }, [dodgeFrames]);
 
   // Load attack sprite frames
   useEffect(() => {
@@ -271,7 +271,7 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
 
     const state = characterState.current;
     const walkImages = walkImagesRef.current;
-    const jumpImages = jumpImagesRef.current;
+    const dodgeImages = dodgeImagesRef.current;
     const attackImages = attackImagesRef.current;
     const idleImages = idleImagesRef.current;
     const bgLayers = bgLayersRef.current;
@@ -281,13 +281,12 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
     // Clear
     ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // Check if walking (horizontal movement) - can't walk while attacking on ground
+    // Check if walking (horizontal movement) - can't walk while attacking or dodging
     const movingHorizontally = keysPressed.current.has("right") || keysPressed.current.has("left");
-    state.isWalking = movingHorizontally && !state.isJumping && !state.isAttacking;
+    state.isWalking = movingHorizontally && !state.isDodging && !state.isAttacking;
 
-    // Handle horizontal movement (works both on ground and in air, but not during ground attack)
-    // Movement speed normalized to 60 FPS for frame-rate independence
-    const canMove = !state.isAttacking || state.isJumping; // Can move during air attack
+    // Handle horizontal movement - not during ground attack (unless dodging)
+    const canMove = !state.isAttacking || state.isDodging;
     const moveAmount = MOVE_SPEED * deltaTime * 60;
     if (canMove) {
       if (keysPressed.current.has("right")) {
@@ -304,20 +303,13 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
 
     state.x = Math.max(50, Math.min(WORLD_WIDTH - 50, state.x));
 
-    // Jump physics - normalized for frame-rate independence
-    // Physics constants were tuned for 60 FPS, so we scale by deltaTime * 60
-    if (state.isJumping) {
-      const physicsScale = deltaTime * 60;
-      state.velocityY += GRAVITY * physicsScale;
-      state.y += state.velocityY * physicsScale;
-
-      if (state.y >= 0) {
-        state.y = 0;
-        state.velocityY = 0;
-        state.isJumping = false;
-        state.jumpFrameIndex = 0;
-        state.jumpFrameTime = 0;
-      }
+    // Dodge movement - quick dash in facing direction
+    if (state.isDodging) {
+      const dashAmount = DODGE_SPEED * deltaTime * 60;
+      const dashDir = state.direction === "right" ? 1 : -1;
+      state.x += dashDir * dashAmount;
+      cameraX.current += dashDir * dashAmount;
+      state.x = Math.max(50, Math.min(WORLD_WIDTH - 50, state.x));
     }
 
     // Draw background layers with parallax
@@ -400,13 +392,13 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
         state.frameTime -= frameDuration;
         state.walkFrameIndex = (state.walkFrameIndex + 1) % walkImages.length;
       }
-    } else if (!state.isJumping && !state.isAttacking) {
+    } else if (!state.isDodging && !state.isAttacking) {
       state.walkFrameIndex = 0;
       state.frameTime = 0;
     }
 
-    // Idle animation - plays when standing still (not walking, jumping, or attacking)
-    if (!state.isWalking && !state.isJumping && !state.isAttacking && idleImages.length > 0) {
+    // Idle animation - plays when standing still (not walking, dodging, or attacking)
+    if (!state.isWalking && !state.isDodging && !state.isAttacking && idleImages.length > 0) {
       state.idleFrameTime += deltaTime;
       const idleFrameDuration = 1 / (currentFps * 0.5); // Slower for subtle breathing
       if (state.idleFrameTime >= idleFrameDuration) {
@@ -415,15 +407,20 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
       }
     }
 
-    // Jump animation - using delta time for frame-rate independence
-    if (state.isJumping && jumpImages.length > 0 && !state.isAttacking) {
-      state.jumpFrameTime += deltaTime;
-      const jumpFrameDuration = 1 / (currentFps * 0.8); // Slightly slower than walk
-      if (state.jumpFrameTime >= jumpFrameDuration) {
-        state.jumpFrameTime -= jumpFrameDuration;
-        if (state.jumpFrameIndex < jumpImages.length - 1) {
-          state.jumpFrameIndex++;
-        }
+    // Dodge animation - plays once then ends
+    if (state.isDodging && dodgeImages.length > 0 && !state.isAttacking) {
+      state.dodgeElapsed += deltaTime;
+      state.dodgeFrameTime += deltaTime;
+      const dodgeFrameDuration = DODGE_DURATION / dodgeImages.length;
+      if (state.dodgeFrameTime >= dodgeFrameDuration) {
+        state.dodgeFrameTime -= dodgeFrameDuration;
+        state.dodgeFrameIndex = Math.min(state.dodgeFrameIndex + 1, dodgeImages.length - 1);
+      }
+      if (state.dodgeElapsed >= DODGE_DURATION) {
+        state.isDodging = false;
+        state.dodgeFrameIndex = 0;
+        state.dodgeFrameTime = 0;
+        state.dodgeElapsed = 0;
       }
     }
 
@@ -444,24 +441,24 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
       }
     }
 
-    // Determine which sprite to draw (priority: attack > jump > walk > idle)
+    // Determine which sprite to draw (priority: attack > dodge > walk > idle)
     let currentImg: HTMLImageElement | null = null;
     let currentFrameData: Frame | null = null;
-    
+
     const walkFrameData = walkFrameDataRef.current;
-    const jumpFrameData = jumpFrameDataRef.current;
+    const dodgeFrameData = dodgeFrameDataRef.current;
     const attackFrameData = attackFrameDataRef.current;
     const idleFrameData = idleFrameDataRef.current;
-    
+
     if (state.isAttacking && attackImages.length > 0) {
       // Use attack frames (highest priority)
       const idx = Math.min(state.attackFrameIndex, attackImages.length - 1);
       currentImg = attackImages[idx];
       currentFrameData = attackFrameData[idx] || null;
-    } else if (state.isJumping && jumpImages.length > 0) {
-      // Use jump frames
-      currentImg = jumpImages[state.jumpFrameIndex];
-      currentFrameData = jumpFrameData[state.jumpFrameIndex] || null;
+    } else if (state.isDodging && dodgeImages.length > 0) {
+      // Use dodge frames
+      currentImg = dodgeImages[state.dodgeFrameIndex];
+      currentFrameData = dodgeFrameData[state.dodgeFrameIndex] || null;
     } else if (state.isWalking && walkImages.length > 0) {
       // Use walk frames when walking
       currentImg = walkImages[state.walkFrameIndex];
@@ -501,7 +498,7 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
       
       // Only add bob when walking on ground
       // timeRef is now in seconds, so multiply by 18 (was 0.3 * 60fps) for same visual speed
-      const bob = state.isWalking && !state.isJumping && !state.isAttacking ? Math.sin(timeRef.current * 18) * 2 : 0;
+      const bob = state.isWalking && !state.isDodging && !state.isAttacking ? Math.sin(timeRef.current * 18) * 2 : 0;
       
       // Position so feet are at GROUND_Y
       // drawY is top-left of the sprite, so: drawY + feetY = GROUND_Y
@@ -559,8 +556,7 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
 
     characterState.current.x = WORLD_WIDTH / 2;
     characterState.current.y = 0;
-    characterState.current.velocityY = 0;
-    characterState.current.isJumping = false;
+    characterState.current.isDodging = false;
     characterState.current.isAttacking = false;
     cameraX.current = 0;
     lastTimeRef.current = performance.now(); // Reset time reference
@@ -574,12 +570,12 @@ export default function PixiSandbox({ walkFrames, jumpFrames, attackFrames, idle
       if (e.key === "a" || e.key === "A" || e.key === "ArrowLeft") {
         keysPressed.current.add("left");
       }
-      // Jump on W or Up arrow - only if on ground and not attacking
-      if ((e.key === "w" || e.key === "W" || e.key === "ArrowUp") && !characterState.current.isJumping && !characterState.current.isAttacking) {
-        characterState.current.isJumping = true;
-        characterState.current.velocityY = JUMP_VELOCITY;
-        characterState.current.jumpFrameIndex = 0;
-        characterState.current.jumpFrameTime = 0;
+      // Dodge on Shift - only if not already dodging or attacking
+      if (e.key === "Shift" && !characterState.current.isDodging && !characterState.current.isAttacking) {
+        characterState.current.isDodging = true;
+        characterState.current.dodgeFrameIndex = 0;
+        characterState.current.dodgeFrameTime = 0;
+        characterState.current.dodgeElapsed = 0;
       }
       // Attack on J - only if not already attacking
       if ((e.key === "j" || e.key === "J") && !characterState.current.isAttacking) {

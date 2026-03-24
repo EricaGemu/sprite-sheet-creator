@@ -22,19 +22,19 @@ Each frame shows a different phase of the walking motion. This creates a smooth 
 
 Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
 
-const JUMP_SPRITE_PROMPT = `Create a 4-frame pixel art jump animation sprite sheet of this character.
+const DODGE_SPRITE_PROMPT = `Create a 4-frame pixel art dodge/dash animation sprite sheet of this character.
 
-Arrange the 4 frames in a 2x2 grid on white background. The character is jumping.
+Arrange the 4 frames in a 2x2 grid on white background. The character is performing a quick dodge roll or dash to the side.
 
 Top row (frames 1-2):
-Frame 1 (top-left): Crouch/anticipation - character slightly crouched, knees bent, preparing to jump
-Frame 2 (top-right): Rising - character in air, legs tucked up, arms up, ascending
+Frame 1 (top-left): Anticipation - character leaning forward, weight shifting, about to dash
+Frame 2 (top-right): Dash initiation - body low, lunging forward in a quick burst of movement
 
 Bottom row (frames 3-4):
-Frame 3 (bottom-left): Apex/peak - character at highest point of jump, body stretched or tucked
-Frame 4 (bottom-right): Landing - character landing, slight crouch to absorb impact
+Frame 3 (bottom-left): Full dash - character fully extended in the dodge, body streamlined and fast
+Frame 4 (bottom-right): Recovery - character straightening up, returning to ready stance
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
+Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right. Convey speed and agility.`;
 
 const ATTACK_SPRITE_PROMPT = `Create a 4-frame pixel art attack animation sprite sheet of this character.
 
@@ -66,18 +66,18 @@ Keep movements SUBTLE - this is a gentle breathing/idle loop, not dramatic motio
 
 Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
 
-type SpriteType = "walk" | "jump" | "attack" | "idle";
+type SpriteType = "walk" | "dodge" | "attack" | "idle";
 
 const PROMPTS: Record<SpriteType, string> = {
   walk: WALK_SPRITE_PROMPT,
-  jump: JUMP_SPRITE_PROMPT,
+  dodge: DODGE_SPRITE_PROMPT,
   attack: ATTACK_SPRITE_PROMPT,
   idle: IDLE_SPRITE_PROMPT,
 };
 
 const ASPECT_RATIOS: Record<SpriteType, string> = {
   walk: "1:1",   // 2x2 grid
-  jump: "1:1",   // 2x2 grid
+  dodge: "1:1",  // 2x2 grid
   attack: "21:9", // 2x2 grid - ultra-wide for big spell effects
   idle: "1:1",   // 2x2 grid
 };
