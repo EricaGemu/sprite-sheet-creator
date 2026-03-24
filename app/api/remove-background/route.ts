@@ -40,10 +40,9 @@ export async function POST(request: NextRequest) {
       height: data.image.height,
     });
   } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("Error removing background:", errMsg);
+    console.error("Error removing background:", error);
     return NextResponse.json(
-      { error: `Failed to remove background: ${errMsg}` },
+      { error: "Failed to remove background" },
       { status: 500 }
     );
   }
