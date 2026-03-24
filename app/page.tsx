@@ -1108,6 +1108,101 @@ export default function Home() {
     setCurrentStep(6);
   };
 
+  const [archiveOpen, setArchiveOpen] = useState(false);
+
+  const downloadArchiveEntry = async (entry: SpriteArchiveEntry) => {
+    const stitchAndDownload = (frames: Frame[], animName: string) => {
+      if (frames.length === 0) return;
+      const cols = 2;
+      const rows = Math.ceil(frames.length / cols);
+      const frameWidth = frames[0].width;
+      const frameHeight = frames[0].height;
+      const canvas = document.createElement("canvas");
+      canvas.width = frameWidth * cols;
+      canvas.height = frameHeight * rows;
+      const ctx = canvas.getContext("2d")!;
+      let loaded = 0;
+      frames.forEach((frame, i) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, (i % cols) * frameWidth, Math.floor(i / cols) * frameHeight);
+          loaded++;
+          if (loaded === frames.length) {
+            const link = document.createElement("a");
+            link.href = canvas.toDataURL("image/png");
+            link.download = `${entry.name.replace(/[^a-z0-9]/gi, "_")}-${animName}.png`;
+            link.click();
+          }
+        };
+        img.src = frame.dataUrl;
+      });
+    };
+    stitchAndDownload(entry.walkFrames, "walk");
+    setTimeout(() => stitchAndDownload(entry.dodgeFrames, "dodge"), 200);
+    setTimeout(() => stitchAndDownload(entry.attackFrames, "attack"), 400);
+    setTimeout(() => stitchAndDownload(entry.idleFrames, "idle"), 600);
+  };
+
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const quickPreview = useCallback(async () => {
+    if (!walkSpriteSheetUrl || !dodgeSpriteSheetUrl || !attackSpriteSheetUrl || !idleSpriteSheetUrl) return;
+    setIsLoadingPreview(true);
+    setError(null);
+
+    const sheets = [
+      { name: "walk", url: walkSpriteSheetUrl, cols: 2, rows: 2 },
+      { name: "dodge", url: dodgeSpriteSheetUrl, cols: 2, rows: 2 },
+      { name: "attack", url: attackSpriteSheetUrl, cols: 2, rows: 2 },
+      { name: "idle", url: idleSpriteSheetUrl, cols: 2, rows: 2 },
+    ];
+
+    try {
+      const results = await Promise.all(
+        sheets.map(
+          (sheet) =>
+            new Promise<{ name: string; frames: Frame[] }>((resolve, reject) => {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = () => {
+                const frames: Frame[] = [];
+                const frameWidth = Math.round(img.width / sheet.cols);
+                const frameHeight = Math.round(img.height / sheet.rows);
+                for (let row = 0; row < sheet.rows; row++) {
+                  for (let col = 0; col < sheet.cols; col++) {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = frameWidth;
+                    canvas.height = frameHeight;
+                    const ctx = canvas.getContext("2d")!;
+                    ctx.drawImage(img, col * frameWidth, row * frameHeight, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+                    const contentBounds = getContentBounds(ctx, frameWidth, frameHeight);
+                    frames.push({ dataUrl: canvas.toDataURL("image/png"), x: col * frameWidth, y: row * frameHeight, width: frameWidth, height: frameHeight, contentBounds });
+                  }
+                }
+                resolve({ name: sheet.name, frames });
+              };
+              img.onerror = () => reject(new Error(`Failed to load ${sheet.name} sprite sheet`));
+              img.src = sheet.url;
+            })
+        )
+      );
+
+      for (const { name, frames } of results) {
+        if (name === "walk") setWalkExtractedFrames(frames);
+        else if (name === "dodge") setDodgeExtractedFrames(frames);
+        else if (name === "attack") setAttackExtractedFrames(frames);
+        else if (name === "idle") setIdleExtractedFrames(frames);
+      }
+
+      setCompletedSteps((prev) => new Set(Array.from(prev).concat([1, 2])));
+      setCurrentStep(6);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load preview");
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  }, [walkSpriteSheetUrl, dodgeSpriteSheetUrl, attackSpriteSheetUrl, idleSpriteSheetUrl]);
+
   const saveToArchive = () => {
     if (!walkExtractedFrames.length && !dodgeExtractedFrames.length) return;
     const name = characterPrompt.trim()
@@ -1155,8 +1250,85 @@ export default function Home() {
           <FalLogo size={36} />
           <h1>Sprite Sheet Creator</h1>
         </div>
-        <p>Create pixel art sprite sheets using fal.ai</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <p>Create pixel art sprite sheets using fal.ai</p>
+          <button
+            className={`btn ${archiveOpen ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setArchiveOpen((v) => !v)}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            Archive{archive.length > 0 ? ` (${archive.length})` : ""}
+          </button>
+        </div>
       </header>
+
+      {/* Archive panel */}
+      {archiveOpen && (
+        <div className="step-container" style={{ marginBottom: "1.5rem" }}>
+          <h2 className="step-title" style={{ marginBottom: "1rem" }}>Saved Sprite Sets</h2>
+          {archive.length === 0 ? (
+            <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "2rem 0" }}>
+              No saved sprite sets yet. Complete the full flow and click &ldquo;Save to Archive&rdquo; in the Sandbox step.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {archive.map((entry) => (
+                <div
+                  key={entry.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "1rem",
+                    padding: "0.75rem 1rem",
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                  }}
+                >
+                  {entry.characterImageUrl ? (
+                    <img
+                      src={entry.characterImageUrl}
+                      alt="character"
+                      style={{ width: 48, height: 48, objectFit: "contain", imageRendering: "pixelated", borderRadius: 4, background: "var(--bg-tertiary)", flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{ width: 48, height: 48, borderRadius: 4, background: "var(--bg-tertiary)", flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: "0.15rem" }}>
+                      {new Date(entry.createdAt).toLocaleString()} &middot; {[entry.walkFrames.length, entry.dodgeFrames.length, entry.attackFrames.length, entry.idleFrames.length].filter(Boolean).length} animations
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                    <button
+                      className="btn btn-success"
+                      style={{ padding: "0.35rem 0.75rem", fontSize: "0.82rem" }}
+                      onClick={() => { loadFromArchive(entry); setArchiveOpen(false); }}
+                    >
+                      Load
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: "0.35rem 0.75rem", fontSize: "0.82rem" }}
+                      onClick={() => downloadArchiveEntry(entry)}
+                    >
+                      Download
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: "0.35rem 0.5rem", fontSize: "0.82rem" }}
+                      onClick={() => deleteFromArchive(entry.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Steps indicator */}
       <div className="steps-indicator">
@@ -1363,46 +1535,6 @@ export default function Home() {
             )}
           </div>
 
-          {archive.length > 0 && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "1.5rem 0" }}>
-                <div style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
-                <span style={{ color: "var(--text-tertiary)", fontSize: "0.85rem" }}>or load from archive</span>
-                <div style={{ flex: 1, height: "1px", background: "var(--border-color)" }} />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                {archive.map((entry) => (
-                  <div
-                    key={entry.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "0.6rem 0.75rem",
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    {entry.characterImageUrl && (
-                      <img
-                        src={entry.characterImageUrl}
-                        alt="character"
-                        style={{ width: 40, height: 40, objectFit: "contain", imageRendering: "pixelated", borderRadius: 4, background: "var(--bg-tertiary)" }}
-                      />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "0.9rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)" }}>{new Date(entry.createdAt).toLocaleString()}</div>
-                    </div>
-                    <button className="btn btn-success" style={{ padding: "0.3rem 0.7rem", fontSize: "0.8rem" }} onClick={() => loadFromArchive(entry)}>Load</button>
-                    <button className="btn btn-secondary" style={{ padding: "0.3rem 0.7rem", fontSize: "0.8rem" }} onClick={() => deleteFromArchive(entry.id)}>✕</button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
           {isGeneratingCharacter && (
             <div className="loading">
               <FalSpinner />
@@ -1546,6 +1678,13 @@ export default function Home() {
               disabled={isGeneratingSpriteSheet || isRemovingBg}
             >
               Regenerate All
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={quickPreview}
+              disabled={isLoadingPreview || isGeneratingSpriteSheet || isRemovingBg || !walkSpriteSheetUrl || !dodgeSpriteSheetUrl}
+            >
+              {isLoadingPreview ? "Loading..." : "Quick Preview →"}
             </button>
             <button
               className="btn btn-success"
