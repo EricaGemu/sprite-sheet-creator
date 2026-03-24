@@ -1374,12 +1374,15 @@ export default function Home() {
       damageFrames: damageExtractedFrames,
       victoryFrames: victoryExtractedFrames,
     };
+    // Always download as JSON file for local backup
+    exportArchiveEntry(entry);
+    // Also try to keep in memory + localStorage
     const updated = [entry, ...archive];
     setArchive(updated);
     try {
       localStorage.setItem("sprite-archive", JSON.stringify(updated));
     } catch {
-      setError("Archive storage is full. Please delete some entries.");
+      // localStorage full — file was already downloaded, so no data loss
     }
   };
 
@@ -1400,6 +1403,52 @@ export default function Home() {
     const updated = archive.filter((e) => e.id !== id);
     setArchive(updated);
     localStorage.setItem("sprite-archive", JSON.stringify(updated));
+  };
+
+  // Export a single archive entry as a JSON file for local backup
+  const exportArchiveEntry = (entry: SpriteArchiveEntry) => {
+    const json = JSON.stringify(entry);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${entry.name.replace(/[^a-z0-9]/gi, "_")}-sprites.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import an archive entry from a JSON file
+  const importArchiveEntry = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const entry = JSON.parse(ev.target?.result as string) as SpriteArchiveEntry;
+          if (!entry.id || !entry.name || !entry.walkFrames) {
+            setError("Invalid sprite archive file.");
+            return;
+          }
+          // Give it a new ID to avoid collisions
+          entry.id = Date.now().toString();
+          const updated = [entry, ...archive];
+          setArchive(updated);
+          try {
+            localStorage.setItem("sprite-archive", JSON.stringify(updated));
+          } catch {
+            // localStorage full — that's fine, it's loaded in memory
+          }
+        } catch {
+          setError("Failed to parse sprite archive file.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   return (
@@ -1424,7 +1473,12 @@ export default function Home() {
       {/* Archive panel */}
       {archiveOpen && (
         <div className="step-container" style={{ marginBottom: "1.5rem" }}>
-          <h2 className="step-title" style={{ marginBottom: "1rem" }}>Saved Sprite Sets</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <h2 className="step-title" style={{ margin: 0 }}>Saved Sprite Sets</h2>
+            <button className="btn btn-secondary" style={{ fontSize: "0.82rem" }} onClick={importArchiveEntry}>
+              Import JSON
+            </button>
+          </div>
           {archive.length === 0 ? (
             <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "2rem 0" }}>
               No saved sprite sets yet. Complete the full flow and click &ldquo;Save to Archive&rdquo; in the Sandbox step.
@@ -1456,7 +1510,7 @@ export default function Home() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "0.95rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</div>
                     <div style={{ fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: "0.15rem" }}>
-                      {new Date(entry.createdAt).toLocaleString()} &middot; {[entry.walkFrames.length, entry.dodgeFrames.length, entry.attackFrames.length, entry.idleFrames.length].filter(Boolean).length} animations
+                      {new Date(entry.createdAt).toLocaleString()} &middot; {[entry.walkFrames.length, entry.dodgeFrames.length, entry.attackFrames.length, entry.idleFrames.length, (entry.koFrames || []).length, (entry.damageFrames || []).length, (entry.victoryFrames || []).length].filter(Boolean).length} animations
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
@@ -1472,7 +1526,14 @@ export default function Home() {
                       style={{ padding: "0.35rem 0.75rem", fontSize: "0.82rem" }}
                       onClick={() => downloadArchiveEntry(entry)}
                     >
-                      Download
+                      PNG
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: "0.35rem 0.75rem", fontSize: "0.82rem" }}
+                      onClick={() => exportArchiveEntry(entry)}
+                    >
+                      JSON
                     </button>
                     <button
                       className="btn btn-secondary"
