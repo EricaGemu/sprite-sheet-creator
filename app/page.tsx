@@ -210,12 +210,11 @@ export default function Home() {
 
   // Archive
   const [archive, setArchive] = useState<SpriteArchiveEntry[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(localStorage.getItem("sprite-archive") || "[]");
-    } catch {
-      return [];
+    if (typeof window !== "undefined") {
+      // Clear old localStorage data that may be filling up storage
+      localStorage.removeItem("sprite-archive");
     }
+    return [];
   });
 
   // Error handling
@@ -1374,16 +1373,11 @@ export default function Home() {
       damageFrames: damageExtractedFrames,
       victoryFrames: victoryExtractedFrames,
     };
-    // Always download as JSON file for local backup
+    // Download as JSON file for local backup
     exportArchiveEntry(entry);
-    // Also try to keep in memory + localStorage
+    // Keep in memory for current session
     const updated = [entry, ...archive];
     setArchive(updated);
-    try {
-      localStorage.setItem("sprite-archive", JSON.stringify(updated));
-    } catch {
-      // localStorage full — file was already downloaded, so no data loss
-    }
   };
 
   const loadFromArchive = (entry: SpriteArchiveEntry) => {
@@ -1402,7 +1396,6 @@ export default function Home() {
   const deleteFromArchive = (id: string) => {
     const updated = archive.filter((e) => e.id !== id);
     setArchive(updated);
-    localStorage.setItem("sprite-archive", JSON.stringify(updated));
   };
 
   // Export a single archive entry as a JSON file for local backup
@@ -1437,11 +1430,6 @@ export default function Home() {
           entry.id = Date.now().toString();
           const updated = [entry, ...archive];
           setArchive(updated);
-          try {
-            localStorage.setItem("sprite-archive", JSON.stringify(updated));
-          } catch {
-            // localStorage full — that's fine, it's loaded in memory
-          }
         } catch {
           setError("Failed to parse sprite archive file.");
         }
