@@ -27,6 +27,9 @@ interface PixiSandboxProps {
   dodgeFrames: Frame[];
   attackFrames: Frame[];
   idleFrames: Frame[];
+  koFrames: Frame[];
+  damageFrames: Frame[];
+  victoryFrames: Frame[];
   fps: number;
   customBackgroundLayers?: CustomBackgroundLayers;
 }
@@ -44,10 +47,9 @@ const DEFAULT_PARALLAX_LAYERS = [
 const CUSTOM_PARALLAX_SPEEDS = [0, 0.3, 0.6];
 
 // Dodge constants
-const DODGE_SPEED = 8;
 const DODGE_DURATION = 0.35; // seconds
 
-export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idleFrames, fps, customBackgroundLayers }: PixiSandboxProps) {
+export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idleFrames, koFrames, damageFrames, victoryFrames, fps, customBackgroundLayers }: PixiSandboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const characterState = useRef({
@@ -57,15 +59,24 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
     isWalking: false,
     isDodging: false,
     isAttacking: false,
+    isKo: false,
+    isDamaged: false,
+    isVictory: false,
     walkFrameIndex: 0,
     dodgeFrameIndex: 0,
     attackFrameIndex: 0,
     idleFrameIndex: 0,
+    koFrameIndex: 0,
+    damageFrameIndex: 0,
+    victoryFrameIndex: 0,
     frameTime: 0,
     dodgeFrameTime: 0,
     dodgeElapsed: 0,
     attackFrameTime: 0,
     idleFrameTime: 0,
+    koFrameTime: 0,
+    damageFrameTime: 0,
+    victoryFrameTime: 0,
   });
   const keysPressed = useRef<Set<string>>(new Set());
   const animationRef = useRef<number>(0);
@@ -73,11 +84,17 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
   const dodgeImagesRef = useRef<HTMLImageElement[]>([]);
   const attackImagesRef = useRef<HTMLImageElement[]>([]);
   const idleImagesRef = useRef<HTMLImageElement[]>([]);
+  const koImagesRef = useRef<HTMLImageElement[]>([]);
+  const damageImagesRef = useRef<HTMLImageElement[]>([]);
+  const victoryImagesRef = useRef<HTMLImageElement[]>([]);
   // Store frame metadata for bounding box info
   const walkFrameDataRef = useRef<Frame[]>([]);
   const dodgeFrameDataRef = useRef<Frame[]>([]);
   const attackFrameDataRef = useRef<Frame[]>([]);
   const idleFrameDataRef = useRef<Frame[]>([]);
+  const koFrameDataRef = useRef<Frame[]>([]);
+  const damageFrameDataRef = useRef<Frame[]>([]);
+  const victoryFrameDataRef = useRef<Frame[]>([]);
   const bgLayersRef = useRef<HTMLImageElement[]>([]);
   const bgLoadedRef = useRef(false);
   // Custom background layers
@@ -256,6 +273,54 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
     }
   }, [idleFrames]);
 
+  // Load ko sprite frames
+  useEffect(() => {
+    const loadImages = async () => {
+      const images: HTMLImageElement[] = [];
+      for (const frame of koFrames) {
+        const img = new Image();
+        img.src = frame.dataUrl;
+        await new Promise((resolve) => { img.onload = resolve; });
+        images.push(img);
+      }
+      koImagesRef.current = images;
+      koFrameDataRef.current = koFrames;
+    };
+    if (koFrames.length > 0) loadImages();
+  }, [koFrames]);
+
+  // Load damage sprite frames
+  useEffect(() => {
+    const loadImages = async () => {
+      const images: HTMLImageElement[] = [];
+      for (const frame of damageFrames) {
+        const img = new Image();
+        img.src = frame.dataUrl;
+        await new Promise((resolve) => { img.onload = resolve; });
+        images.push(img);
+      }
+      damageImagesRef.current = images;
+      damageFrameDataRef.current = damageFrames;
+    };
+    if (damageFrames.length > 0) loadImages();
+  }, [damageFrames]);
+
+  // Load victory sprite frames
+  useEffect(() => {
+    const loadImages = async () => {
+      const images: HTMLImageElement[] = [];
+      for (const frame of victoryFrames) {
+        const img = new Image();
+        img.src = frame.dataUrl;
+        await new Promise((resolve) => { img.onload = resolve; });
+        images.push(img);
+      }
+      victoryImagesRef.current = images;
+      victoryFrameDataRef.current = victoryFrames;
+    };
+    if (victoryFrames.length > 0) loadImages();
+  }, [victoryFrames]);
+
   // Main game loop
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
@@ -274,6 +339,9 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
     const dodgeImages = dodgeImagesRef.current;
     const attackImages = attackImagesRef.current;
     const idleImages = idleImagesRef.current;
+    const koImages = koImagesRef.current;
+    const damageImages = damageImagesRef.current;
+    const victoryImages = victoryImagesRef.current;
     const bgLayers = bgLayersRef.current;
     // Accumulate time in seconds (not frames) for frame-rate independent effects
     timeRef.current += deltaTime;
@@ -281,12 +349,13 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
     // Clear
     ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    // Check if walking (horizontal movement) - can't walk while attacking or dodging
+    // Check if walking (horizontal movement) - can't walk while in any special animation
     const movingHorizontally = keysPressed.current.has("right") || keysPressed.current.has("left");
-    state.isWalking = movingHorizontally && !state.isDodging && !state.isAttacking;
+    const inSpecialAnim = state.isDodging || state.isAttacking || state.isKo || state.isDamaged || state.isVictory;
+    state.isWalking = movingHorizontally && !inSpecialAnim;
 
-    // Handle horizontal movement - not during ground attack (unless dodging)
-    const canMove = !state.isAttacking || state.isDodging;
+    // Handle horizontal movement - not during special animations
+    const canMove = !inSpecialAnim;
     const moveAmount = MOVE_SPEED * deltaTime * 60;
     if (canMove) {
       if (keysPressed.current.has("right")) {
@@ -303,14 +372,6 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
 
     state.x = Math.max(50, Math.min(WORLD_WIDTH - 50, state.x));
 
-    // Dodge movement - quick dash in facing direction
-    if (state.isDodging) {
-      const dashAmount = DODGE_SPEED * deltaTime * 60;
-      const dashDir = state.direction === "right" ? 1 : -1;
-      state.x += dashDir * dashAmount;
-      cameraX.current += dashDir * dashAmount;
-      state.x = Math.max(50, Math.min(WORLD_WIDTH - 50, state.x));
-    }
 
     // Draw background layers with parallax
     const useCustomBg = customBgLoadedRef.current && customBgLayersRef.current.length > 0;
@@ -392,13 +453,13 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
         state.frameTime -= frameDuration;
         state.walkFrameIndex = (state.walkFrameIndex + 1) % walkImages.length;
       }
-    } else if (!state.isDodging && !state.isAttacking) {
+    } else if (!inSpecialAnim) {
       state.walkFrameIndex = 0;
       state.frameTime = 0;
     }
 
-    // Idle animation - plays when standing still (not walking, dodging, or attacking)
-    if (!state.isWalking && !state.isDodging && !state.isAttacking && idleImages.length > 0) {
+    // Idle animation - plays when standing still (no special animation active)
+    if (!state.isWalking && !inSpecialAnim && idleImages.length > 0) {
       state.idleFrameTime += deltaTime;
       const idleFrameDuration = 1 / (currentFps * 0.5); // Slower for subtle breathing
       if (state.idleFrameTime >= idleFrameDuration) {
@@ -441,7 +502,44 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
       }
     }
 
-    // Determine which sprite to draw (priority: attack > dodge > walk > idle)
+    // KO animation - plays once then holds last frame
+    if (state.isKo && koImages.length > 0) {
+      state.koFrameTime += deltaTime;
+      const koFrameDuration = 1 / (currentFps * 0.8);
+      if (state.koFrameTime >= koFrameDuration) {
+        state.koFrameTime -= koFrameDuration;
+        if (state.koFrameIndex < koImages.length - 1) {
+          state.koFrameIndex++;
+        }
+      }
+    }
+
+    // Damage animation - plays once then ends
+    if (state.isDamaged && damageImages.length > 0) {
+      state.damageFrameTime += deltaTime;
+      const damageFrameDuration = 1 / (currentFps * 1.0);
+      if (state.damageFrameTime >= damageFrameDuration) {
+        state.damageFrameTime -= damageFrameDuration;
+        state.damageFrameIndex++;
+        if (state.damageFrameIndex >= damageImages.length) {
+          state.isDamaged = false;
+          state.damageFrameIndex = 0;
+          state.damageFrameTime = 0;
+        }
+      }
+    }
+
+    // Victory animation - loops while held
+    if (state.isVictory && victoryImages.length > 0) {
+      state.victoryFrameTime += deltaTime;
+      const victoryFrameDuration = 1 / (currentFps * 0.8);
+      if (state.victoryFrameTime >= victoryFrameDuration) {
+        state.victoryFrameTime -= victoryFrameDuration;
+        state.victoryFrameIndex = (state.victoryFrameIndex + 1) % victoryImages.length;
+      }
+    }
+
+    // Determine which sprite to draw (priority: ko > damage > victory > attack > dodge > walk > idle)
     let currentImg: HTMLImageElement | null = null;
     let currentFrameData: Frame | null = null;
 
@@ -449,26 +547,35 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
     const dodgeFrameData = dodgeFrameDataRef.current;
     const attackFrameData = attackFrameDataRef.current;
     const idleFrameData = idleFrameDataRef.current;
+    const koFrameData = koFrameDataRef.current;
+    const damageFrameData = damageFrameDataRef.current;
+    const victoryFrameData = victoryFrameDataRef.current;
 
-    if (state.isAttacking && attackImages.length > 0) {
-      // Use attack frames (highest priority)
+    if (state.isKo && koImages.length > 0) {
+      const idx = Math.min(state.koFrameIndex, koImages.length - 1);
+      currentImg = koImages[idx];
+      currentFrameData = koFrameData[idx] || null;
+    } else if (state.isDamaged && damageImages.length > 0) {
+      const idx = Math.min(state.damageFrameIndex, damageImages.length - 1);
+      currentImg = damageImages[idx];
+      currentFrameData = damageFrameData[idx] || null;
+    } else if (state.isVictory && victoryImages.length > 0) {
+      currentImg = victoryImages[state.victoryFrameIndex];
+      currentFrameData = victoryFrameData[state.victoryFrameIndex] || null;
+    } else if (state.isAttacking && attackImages.length > 0) {
       const idx = Math.min(state.attackFrameIndex, attackImages.length - 1);
       currentImg = attackImages[idx];
       currentFrameData = attackFrameData[idx] || null;
     } else if (state.isDodging && dodgeImages.length > 0) {
-      // Use dodge frames
       currentImg = dodgeImages[state.dodgeFrameIndex];
       currentFrameData = dodgeFrameData[state.dodgeFrameIndex] || null;
     } else if (state.isWalking && walkImages.length > 0) {
-      // Use walk frames when walking
       currentImg = walkImages[state.walkFrameIndex];
       currentFrameData = walkFrameData[state.walkFrameIndex] || null;
     } else if (idleImages.length > 0) {
-      // Use idle frames when standing still
       currentImg = idleImages[state.idleFrameIndex];
       currentFrameData = idleFrameData[state.idleFrameIndex] || null;
     } else if (walkImages.length > 0) {
-      // Fallback to walk frame 0 if no idle frames
       currentImg = walkImages[0];
       currentFrameData = walkFrameData[0] || null;
     }
@@ -558,6 +665,9 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
     characterState.current.y = 0;
     characterState.current.isDodging = false;
     characterState.current.isAttacking = false;
+    characterState.current.isKo = false;
+    characterState.current.isDamaged = false;
+    characterState.current.isVictory = false;
     cameraX.current = 0;
     lastTimeRef.current = performance.now(); // Reset time reference
 
@@ -578,10 +688,46 @@ export default function PixiSandbox({ walkFrames, dodgeFrames, attackFrames, idl
         characterState.current.dodgeElapsed = 0;
       }
       // Attack on J - only if not already attacking
-      if ((e.key === "j" || e.key === "J") && !characterState.current.isAttacking) {
+      if ((e.key === "j" || e.key === "J") && !characterState.current.isAttacking && !characterState.current.isKo) {
         characterState.current.isAttacking = true;
         characterState.current.attackFrameIndex = 0;
         characterState.current.attackFrameTime = 0;
+      }
+      // KO on K - plays knockout, holds last frame until R to reset
+      if ((e.key === "k" || e.key === "K") && !characterState.current.isKo) {
+        characterState.current.isKo = true;
+        characterState.current.koFrameIndex = 0;
+        characterState.current.koFrameTime = 0;
+        characterState.current.isDodging = false;
+        characterState.current.isAttacking = false;
+        characterState.current.isDamaged = false;
+        characterState.current.isVictory = false;
+      }
+      // Reset from KO with R
+      if ((e.key === "r" || e.key === "R") && characterState.current.isKo) {
+        characterState.current.isKo = false;
+        characterState.current.koFrameIndex = 0;
+        characterState.current.koFrameTime = 0;
+      }
+      // Damage on G (get hit) - only if not KO
+      if ((e.key === "g" || e.key === "G") && !characterState.current.isDamaged && !characterState.current.isKo) {
+        characterState.current.isDamaged = true;
+        characterState.current.damageFrameIndex = 0;
+        characterState.current.damageFrameTime = 0;
+      }
+      // Victory on V - toggle
+      if ((e.key === "v" || e.key === "V") && !characterState.current.isKo) {
+        if (characterState.current.isVictory) {
+          characterState.current.isVictory = false;
+          characterState.current.victoryFrameIndex = 0;
+          characterState.current.victoryFrameTime = 0;
+        } else {
+          characterState.current.isVictory = true;
+          characterState.current.victoryFrameIndex = 0;
+          characterState.current.victoryFrameTime = 0;
+          characterState.current.isDodging = false;
+          characterState.current.isAttacking = false;
+        }
       }
     };
 

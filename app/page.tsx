@@ -52,6 +52,9 @@ interface SpriteArchiveEntry {
   dodgeFrames: Frame[];
   attackFrames: Frame[];
   idleFrames: Frame[];
+  koFrames: Frame[];
+  damageFrames: Frame[];
+  victoryFrames: Frame[];
 }
 
 // Get bounding box of non-transparent pixels in image data
@@ -101,18 +104,24 @@ export default function Home() {
   const [characterImageUrl, setCharacterImageUrl] = useState<string | null>(null);
   const [isGeneratingCharacter, setIsGeneratingCharacter] = useState(false);
 
-  // Step 2: Sprite sheet generation (walk + jump + attack + idle)
+  // Step 2: Sprite sheet generation
   const [walkSpriteSheetUrl, setWalkSpriteSheetUrl] = useState<string | null>(null);
   const [dodgeSpriteSheetUrl, setDodgeSpriteSheetUrl] = useState<string | null>(null);
   const [attackSpriteSheetUrl, setAttackSpriteSheetUrl] = useState<string | null>(null);
   const [idleSpriteSheetUrl, setIdleSpriteSheetUrl] = useState<string | null>(null);
+  const [koSpriteSheetUrl, setKoSpriteSheetUrl] = useState<string | null>(null);
+  const [damageSpriteSheetUrl, setDamageSpriteSheetUrl] = useState<string | null>(null);
+  const [victorySpriteSheetUrl, setVictorySpriteSheetUrl] = useState<string | null>(null);
   const [isGeneratingSpriteSheet, setIsGeneratingSpriteSheet] = useState(false);
 
-  // Step 3: Background removal (walk + jump + attack + idle)
+  // Step 3: Background removal
   const [walkBgRemovedUrl, setWalkBgRemovedUrl] = useState<string | null>(null);
   const [dodgeBgRemovedUrl, setDodgeBgRemovedUrl] = useState<string | null>(null);
   const [attackBgRemovedUrl, setAttackBgRemovedUrl] = useState<string | null>(null);
   const [idleBgRemovedUrl, setIdleBgRemovedUrl] = useState<string | null>(null);
+  const [koBgRemovedUrl, setKoBgRemovedUrl] = useState<string | null>(null);
+  const [damageBgRemovedUrl, setDamageBgRemovedUrl] = useState<string | null>(null);
+  const [victoryBgRemovedUrl, setVictoryBgRemovedUrl] = useState<string | null>(null);
   const [isRemovingBg, setIsRemovingBg] = useState(false);
 
   // Step 4: Frame extraction (grid-based) - walk
@@ -151,10 +160,37 @@ export default function Home() {
   const [idleSpriteSheetDimensions, setIdleSpriteSheetDimensions] = useState({ width: 0, height: 0 });
   const idleSpriteSheetRef = useRef<HTMLImageElement>(null);
 
+  // Step 4: Frame extraction (grid-based) - ko
+  const [koGridCols, setKoGridCols] = useState(2);
+  const [koGridRows, setKoGridRows] = useState(2);
+  const [koVerticalDividers, setKoVerticalDividers] = useState<number[]>([]);
+  const [koHorizontalDividers, setKoHorizontalDividers] = useState<number[]>([]);
+  const [koExtractedFrames, setKoExtractedFrames] = useState<Frame[]>([]);
+  const [koSpriteSheetDimensions, setKoSpriteSheetDimensions] = useState({ width: 0, height: 0 });
+  const koSpriteSheetRef = useRef<HTMLImageElement>(null);
+
+  // Step 4: Frame extraction (grid-based) - damage
+  const [damageGridCols, setDamageGridCols] = useState(2);
+  const [damageGridRows, setDamageGridRows] = useState(2);
+  const [damageVerticalDividers, setDamageVerticalDividers] = useState<number[]>([]);
+  const [damageHorizontalDividers, setDamageHorizontalDividers] = useState<number[]>([]);
+  const [damageExtractedFrames, setDamageExtractedFrames] = useState<Frame[]>([]);
+  const [damageSpriteSheetDimensions, setDamageSpriteSheetDimensions] = useState({ width: 0, height: 0 });
+  const damageSpriteSheetRef = useRef<HTMLImageElement>(null);
+
+  // Step 4: Frame extraction (grid-based) - victory
+  const [victoryGridCols, setVictoryGridCols] = useState(2);
+  const [victoryGridRows, setVictoryGridRows] = useState(2);
+  const [victoryVerticalDividers, setVictoryVerticalDividers] = useState<number[]>([]);
+  const [victoryHorizontalDividers, setVictoryHorizontalDividers] = useState<number[]>([]);
+  const [victoryExtractedFrames, setVictoryExtractedFrames] = useState<Frame[]>([]);
+  const [victorySpriteSheetDimensions, setVictorySpriteSheetDimensions] = useState({ width: 0, height: 0 });
+  const victorySpriteSheetRef = useRef<HTMLImageElement>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Which sprite sheet is being edited
-  const [activeSheet, setActiveSheet] = useState<"walk" | "dodge" | "attack" | "idle">("walk");
+  const [activeSheet, setActiveSheet] = useState<"walk" | "dodge" | "attack" | "idle" | "ko" | "damage" | "victory">("walk");
 
   // Step 5: Animation preview
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -253,6 +289,42 @@ export default function Home() {
     }
   }, [idleGridCols, idleGridRows, idleSpriteSheetDimensions.width]);
 
+  // Initialize ko divider positions when grid changes
+  useEffect(() => {
+    if (koSpriteSheetDimensions.width > 0) {
+      const vPositions: number[] = [];
+      for (let i = 1; i < koGridCols; i++) vPositions.push((i / koGridCols) * 100);
+      setKoVerticalDividers(vPositions);
+      const hPositions: number[] = [];
+      for (let i = 1; i < koGridRows; i++) hPositions.push((i / koGridRows) * 100);
+      setKoHorizontalDividers(hPositions);
+    }
+  }, [koGridCols, koGridRows, koSpriteSheetDimensions.width]);
+
+  // Initialize damage divider positions when grid changes
+  useEffect(() => {
+    if (damageSpriteSheetDimensions.width > 0) {
+      const vPositions: number[] = [];
+      for (let i = 1; i < damageGridCols; i++) vPositions.push((i / damageGridCols) * 100);
+      setDamageVerticalDividers(vPositions);
+      const hPositions: number[] = [];
+      for (let i = 1; i < damageGridRows; i++) hPositions.push((i / damageGridRows) * 100);
+      setDamageHorizontalDividers(hPositions);
+    }
+  }, [damageGridCols, damageGridRows, damageSpriteSheetDimensions.width]);
+
+  // Initialize victory divider positions when grid changes
+  useEffect(() => {
+    if (victorySpriteSheetDimensions.width > 0) {
+      const vPositions: number[] = [];
+      for (let i = 1; i < victoryGridCols; i++) vPositions.push((i / victoryGridCols) * 100);
+      setVictoryVerticalDividers(vPositions);
+      const hPositions: number[] = [];
+      for (let i = 1; i < victoryGridRows; i++) hPositions.push((i / victoryGridRows) * 100);
+      setVictoryHorizontalDividers(hPositions);
+    }
+  }, [victoryGridCols, victoryGridRows, victorySpriteSheetDimensions.width]);
+
   // Extract walk frames when divider positions change
   useEffect(() => {
     if (walkBgRemovedUrl && walkSpriteSheetDimensions.width > 0) {
@@ -280,6 +352,21 @@ export default function Home() {
       extractIdleFrames();
     }
   }, [idleBgRemovedUrl, idleVerticalDividers, idleHorizontalDividers, idleSpriteSheetDimensions]);
+
+  // Extract ko frames when divider positions change
+  useEffect(() => {
+    if (koBgRemovedUrl && koSpriteSheetDimensions.width > 0) extractKoFrames();
+  }, [koBgRemovedUrl, koVerticalDividers, koHorizontalDividers, koSpriteSheetDimensions]);
+
+  // Extract damage frames when divider positions change
+  useEffect(() => {
+    if (damageBgRemovedUrl && damageSpriteSheetDimensions.width > 0) extractDamageFrames();
+  }, [damageBgRemovedUrl, damageVerticalDividers, damageHorizontalDividers, damageSpriteSheetDimensions]);
+
+  // Extract victory frames when divider positions change
+  useEffect(() => {
+    if (victoryBgRemovedUrl && victorySpriteSheetDimensions.width > 0) extractVictoryFrames();
+  }, [victoryBgRemovedUrl, victoryVerticalDividers, victoryHorizontalDividers, victorySpriteSheetDimensions]);
 
   // Animation loop (uses walk frames for preview)
   useEffect(() => {
@@ -411,52 +498,25 @@ export default function Home() {
     setIsGeneratingSpriteSheet(true);
 
     try {
-      // Send parallel requests for walk, jump, attack, and idle sprite sheets
-      const [walkResponse, jumpResponse, attackResponse, idleResponse] = await Promise.all([
-        fetch("/api/generate-sprite-sheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ characterImageUrl, type: "walk" }),
-        }),
-        fetch("/api/generate-sprite-sheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ characterImageUrl, type: "dodge" }),
-        }),
-        fetch("/api/generate-sprite-sheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ characterImageUrl, type: "attack" }),
-        }),
-        fetch("/api/generate-sprite-sheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ characterImageUrl, type: "idle" }),
-        }),
-      ]);
-
-      const walkData = await walkResponse.json();
-      const jumpData = await jumpResponse.json();
-      const attackData = await attackResponse.json();
-      const idleData = await idleResponse.json();
-
-      if (!walkResponse.ok) {
-        throw new Error(walkData.error || "Failed to generate walk sprite sheet");
+      const types = ["walk", "dodge", "attack", "idle", "ko", "damage", "victory"] as const;
+      const responses = await Promise.all(
+        types.map((type) =>
+          fetch("/api/generate-sprite-sheet", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ characterImageUrl, type }),
+          })
+        )
+      );
+      const dataArr = await Promise.all(responses.map((r) => r.json()));
+      for (let i = 0; i < responses.length; i++) {
+        if (!responses[i].ok) throw new Error(dataArr[i].error || `Failed to generate ${types[i]} sprite sheet`);
       }
-      if (!jumpResponse.ok) {
-        throw new Error(jumpData.error || "Failed to generate jump sprite sheet");
-      }
-      if (!attackResponse.ok) {
-        throw new Error(attackData.error || "Failed to generate attack sprite sheet");
-      }
-      if (!idleResponse.ok) {
-        throw new Error(idleData.error || "Failed to generate idle sprite sheet");
-      }
-
-      setWalkSpriteSheetUrl(walkData.imageUrl);
-      setDodgeSpriteSheetUrl(jumpData.imageUrl);
-      setAttackSpriteSheetUrl(attackData.imageUrl);
-      setIdleSpriteSheetUrl(idleData.imageUrl);
+      const setters: Record<string, (url: string) => void> = {
+        walk: setWalkSpriteSheetUrl, dodge: setDodgeSpriteSheetUrl, attack: setAttackSpriteSheetUrl,
+        idle: setIdleSpriteSheetUrl, ko: setKoSpriteSheetUrl, damage: setDamageSpriteSheetUrl, victory: setVictorySpriteSheetUrl,
+      };
+      types.forEach((type, i) => setters[type](dataArr[i].imageUrl));
       setCompletedSteps((prev) => new Set([...prev, 1]));
       setCurrentStep(2);
     } catch (err) {
@@ -466,9 +526,10 @@ export default function Home() {
     }
   };
 
-  const [regeneratingSpriteSheet, setRegeneratingSpriteSheet] = useState<"walk" | "dodge" | "attack" | "idle" | null>(null);
+  type AnimationType = "walk" | "dodge" | "attack" | "idle" | "ko" | "damage" | "victory";
+  const [regeneratingSpriteSheet, setRegeneratingSpriteSheet] = useState<AnimationType | null>(null);
 
-  const regenerateSpriteSheet = async (type: "walk" | "dodge" | "attack" | "idle") => {
+  const regenerateSpriteSheet = async (type: AnimationType) => {
     if (!characterImageUrl) return;
 
     setError(null);
@@ -487,15 +548,11 @@ export default function Home() {
         throw new Error(data.error || `Failed to generate ${type} sprite sheet`);
       }
 
-      if (type === "walk") {
-        setWalkSpriteSheetUrl(data.imageUrl);
-      } else if (type === "dodge") {
-        setDodgeSpriteSheetUrl(data.imageUrl);
-      } else if (type === "attack") {
-        setAttackSpriteSheetUrl(data.imageUrl);
-      } else if (type === "idle") {
-        setIdleSpriteSheetUrl(data.imageUrl);
-      }
+      const setters: Record<string, (url: string) => void> = {
+        walk: setWalkSpriteSheetUrl, dodge: setDodgeSpriteSheetUrl, attack: setAttackSpriteSheetUrl,
+        idle: setIdleSpriteSheetUrl, ko: setKoSpriteSheetUrl, damage: setDamageSpriteSheetUrl, victory: setVictorySpriteSheetUrl,
+      };
+      setters[type]?.(data.imageUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to regenerate ${type} sprite sheet`);
     } finally {
@@ -504,62 +561,40 @@ export default function Home() {
   };
 
   const removeBackground = async () => {
-    if (!walkSpriteSheetUrl || !dodgeSpriteSheetUrl || !attackSpriteSheetUrl || !idleSpriteSheetUrl) return;
+    const sheetUrls = [walkSpriteSheetUrl, dodgeSpriteSheetUrl, attackSpriteSheetUrl, idleSpriteSheetUrl, koSpriteSheetUrl, damageSpriteSheetUrl, victorySpriteSheetUrl];
+    if (sheetUrls.some((u) => !u)) return;
 
     setError(null);
     setIsRemovingBg(true);
 
     try {
-      // Send parallel requests for all sprite sheets
-      const [walkResponse, jumpResponse, attackResponse, idleResponse] = await Promise.all([
-        fetch("/api/remove-background", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: walkSpriteSheetUrl }),
-        }),
-        fetch("/api/remove-background", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: dodgeSpriteSheetUrl }),
-        }),
-        fetch("/api/remove-background", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: attackSpriteSheetUrl }),
-        }),
-        fetch("/api/remove-background", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: idleSpriteSheetUrl }),
-        }),
-      ]);
-
-      const walkData = await walkResponse.json();
-      const jumpData = await jumpResponse.json();
-      const attackData = await attackResponse.json();
-      const idleData = await idleResponse.json();
-
-      if (!walkResponse.ok) {
-        throw new Error(walkData.error || "Failed to remove walk background");
-      }
-      if (!jumpResponse.ok) {
-        throw new Error(jumpData.error || "Failed to remove jump background");
-      }
-      if (!attackResponse.ok) {
-        throw new Error(attackData.error || "Failed to remove attack background");
-      }
-      if (!idleResponse.ok) {
-        throw new Error(idleData.error || "Failed to remove idle background");
+      const types = ["walk", "dodge", "attack", "idle", "ko", "damage", "victory"] as const;
+      const responses = await Promise.all(
+        sheetUrls.map((url) =>
+          fetch("/api/remove-background", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: url }),
+          })
+        )
+      );
+      const dataArr = await Promise.all(responses.map((r) => r.json()));
+      for (let i = 0; i < responses.length; i++) {
+        if (!responses[i].ok) throw new Error(dataArr[i].error || `Failed to remove ${types[i]} background`);
       }
 
-      setWalkBgRemovedUrl(walkData.imageUrl);
-      setDodgeBgRemovedUrl(jumpData.imageUrl);
-      setAttackBgRemovedUrl(attackData.imageUrl);
-      setIdleBgRemovedUrl(idleData.imageUrl);
-      setWalkSpriteSheetDimensions({ width: walkData.width, height: walkData.height });
-      setDodgeSpriteSheetDimensions({ width: jumpData.width, height: jumpData.height });
-      setAttackSpriteSheetDimensions({ width: attackData.width, height: attackData.height });
-      setIdleSpriteSheetDimensions({ width: idleData.width, height: idleData.height });
+      const bgSetters: Record<string, (url: string) => void> = {
+        walk: setWalkBgRemovedUrl, dodge: setDodgeBgRemovedUrl, attack: setAttackBgRemovedUrl,
+        idle: setIdleBgRemovedUrl, ko: setKoBgRemovedUrl, damage: setDamageBgRemovedUrl, victory: setVictoryBgRemovedUrl,
+      };
+      const dimSetters: Record<string, (d: { width: number; height: number }) => void> = {
+        walk: setWalkSpriteSheetDimensions, dodge: setDodgeSpriteSheetDimensions, attack: setAttackSpriteSheetDimensions,
+        idle: setIdleSpriteSheetDimensions, ko: setKoSpriteSheetDimensions, damage: setDamageSpriteSheetDimensions, victory: setVictorySpriteSheetDimensions,
+      };
+      types.forEach((type, i) => {
+        bgSetters[type](dataArr[i].imageUrl);
+        dimSetters[type]({ width: dataArr[i].width, height: dataArr[i].height });
+      });
       setCompletedSteps((prev) => new Set([...prev, 2]));
       setCurrentStep(3);
     } catch (err) {
@@ -1071,30 +1106,143 @@ export default function Home() {
     link.click();
   };
 
+  // --- KO extract, dividers, export ---
+  const extractKoFrames = useCallback(async () => {
+    if (!koBgRemovedUrl) return;
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const frames: Frame[] = [];
+      const colPositions = [0, ...koVerticalDividers, 100];
+      const rowPositions = [0, ...koHorizontalDividers, 100];
+      for (let row = 0; row < rowPositions.length - 1; row++) {
+        const startY = Math.round((rowPositions[row] / 100) * img.height);
+        const endY = Math.round((rowPositions[row + 1] / 100) * img.height);
+        for (let col = 0; col < colPositions.length - 1; col++) {
+          const startX = Math.round((colPositions[col] / 100) * img.width);
+          const endX = Math.round((colPositions[col + 1] / 100) * img.width);
+          const fw = endX - startX, fh = endY - startY;
+          const canvas = document.createElement("canvas"); canvas.width = fw; canvas.height = fh;
+          const ctx = canvas.getContext("2d");
+          if (ctx) { ctx.drawImage(img, startX, startY, fw, fh, 0, 0, fw, fh);
+            frames.push({ dataUrl: canvas.toDataURL("image/png"), x: startX, y: startY, width: fw, height: fh, contentBounds: getContentBounds(ctx, fw, fh) }); }
+        }
+      }
+      setKoExtractedFrames(frames);
+    };
+    img.src = koBgRemovedUrl;
+  }, [koBgRemovedUrl, koVerticalDividers, koHorizontalDividers]);
+
+  const handleKoVerticalDividerDrag = (index: number, e: React.MouseEvent) => {
+    e.preventDefault(); const imgRect = koSpriteSheetRef.current?.getBoundingClientRect(); if (!imgRect) return;
+    const handleMouseMove = (ev: MouseEvent) => { const p = Math.max(0, Math.min(100, ((ev.clientX - imgRect.left) / imgRect.width) * 100)); const np = [...koVerticalDividers]; const min = index > 0 ? np[index-1]+2 : 2; const max = index < np.length-1 ? np[index+1]-2 : 98; np[index] = Math.max(min, Math.min(max, p)); setKoVerticalDividers(np); };
+    const handleMouseUp = () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    window.addEventListener("mousemove", handleMouseMove); window.addEventListener("mouseup", handleMouseUp);
+  };
+  const handleKoHorizontalDividerDrag = (index: number, e: React.MouseEvent) => {
+    e.preventDefault(); const imgRect = koSpriteSheetRef.current?.getBoundingClientRect(); if (!imgRect) return;
+    const handleMouseMove = (ev: MouseEvent) => { const p = Math.max(0, Math.min(100, ((ev.clientY - imgRect.top) / imgRect.height) * 100)); const np = [...koHorizontalDividers]; const min = index > 0 ? np[index-1]+2 : 2; const max = index < np.length-1 ? np[index+1]-2 : 98; np[index] = Math.max(min, Math.min(max, p)); setKoHorizontalDividers(np); };
+    const handleMouseUp = () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    window.addEventListener("mousemove", handleMouseMove); window.addEventListener("mouseup", handleMouseUp);
+  };
+  const exportKoSpriteSheet = () => { if (!koBgRemovedUrl) return; const l = document.createElement("a"); l.href = koBgRemovedUrl; l.download = "ko-sprite-sheet.png"; l.click(); };
+
+  // --- Damage extract, dividers, export ---
+  const extractDamageFrames = useCallback(async () => {
+    if (!damageBgRemovedUrl) return;
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const frames: Frame[] = [];
+      const colPositions = [0, ...damageVerticalDividers, 100];
+      const rowPositions = [0, ...damageHorizontalDividers, 100];
+      for (let row = 0; row < rowPositions.length - 1; row++) {
+        const startY = Math.round((rowPositions[row] / 100) * img.height);
+        const endY = Math.round((rowPositions[row + 1] / 100) * img.height);
+        for (let col = 0; col < colPositions.length - 1; col++) {
+          const startX = Math.round((colPositions[col] / 100) * img.width);
+          const endX = Math.round((colPositions[col + 1] / 100) * img.width);
+          const fw = endX - startX, fh = endY - startY;
+          const canvas = document.createElement("canvas"); canvas.width = fw; canvas.height = fh;
+          const ctx = canvas.getContext("2d");
+          if (ctx) { ctx.drawImage(img, startX, startY, fw, fh, 0, 0, fw, fh);
+            frames.push({ dataUrl: canvas.toDataURL("image/png"), x: startX, y: startY, width: fw, height: fh, contentBounds: getContentBounds(ctx, fw, fh) }); }
+        }
+      }
+      setDamageExtractedFrames(frames);
+    };
+    img.src = damageBgRemovedUrl;
+  }, [damageBgRemovedUrl, damageVerticalDividers, damageHorizontalDividers]);
+
+  const handleDamageVerticalDividerDrag = (index: number, e: React.MouseEvent) => {
+    e.preventDefault(); const imgRect = damageSpriteSheetRef.current?.getBoundingClientRect(); if (!imgRect) return;
+    const handleMouseMove = (ev: MouseEvent) => { const p = Math.max(0, Math.min(100, ((ev.clientX - imgRect.left) / imgRect.width) * 100)); const np = [...damageVerticalDividers]; const min = index > 0 ? np[index-1]+2 : 2; const max = index < np.length-1 ? np[index+1]-2 : 98; np[index] = Math.max(min, Math.min(max, p)); setDamageVerticalDividers(np); };
+    const handleMouseUp = () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    window.addEventListener("mousemove", handleMouseMove); window.addEventListener("mouseup", handleMouseUp);
+  };
+  const handleDamageHorizontalDividerDrag = (index: number, e: React.MouseEvent) => {
+    e.preventDefault(); const imgRect = damageSpriteSheetRef.current?.getBoundingClientRect(); if (!imgRect) return;
+    const handleMouseMove = (ev: MouseEvent) => { const p = Math.max(0, Math.min(100, ((ev.clientY - imgRect.top) / imgRect.height) * 100)); const np = [...damageHorizontalDividers]; const min = index > 0 ? np[index-1]+2 : 2; const max = index < np.length-1 ? np[index+1]-2 : 98; np[index] = Math.max(min, Math.min(max, p)); setDamageHorizontalDividers(np); };
+    const handleMouseUp = () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    window.addEventListener("mousemove", handleMouseMove); window.addEventListener("mouseup", handleMouseUp);
+  };
+  const exportDamageSpriteSheet = () => { if (!damageBgRemovedUrl) return; const l = document.createElement("a"); l.href = damageBgRemovedUrl; l.download = "damage-sprite-sheet.png"; l.click(); };
+
+  // --- Victory extract, dividers, export ---
+  const extractVictoryFrames = useCallback(async () => {
+    if (!victoryBgRemovedUrl) return;
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const frames: Frame[] = [];
+      const colPositions = [0, ...victoryVerticalDividers, 100];
+      const rowPositions = [0, ...victoryHorizontalDividers, 100];
+      for (let row = 0; row < rowPositions.length - 1; row++) {
+        const startY = Math.round((rowPositions[row] / 100) * img.height);
+        const endY = Math.round((rowPositions[row + 1] / 100) * img.height);
+        for (let col = 0; col < colPositions.length - 1; col++) {
+          const startX = Math.round((colPositions[col] / 100) * img.width);
+          const endX = Math.round((colPositions[col + 1] / 100) * img.width);
+          const fw = endX - startX, fh = endY - startY;
+          const canvas = document.createElement("canvas"); canvas.width = fw; canvas.height = fh;
+          const ctx = canvas.getContext("2d");
+          if (ctx) { ctx.drawImage(img, startX, startY, fw, fh, 0, 0, fw, fh);
+            frames.push({ dataUrl: canvas.toDataURL("image/png"), x: startX, y: startY, width: fw, height: fh, contentBounds: getContentBounds(ctx, fw, fh) }); }
+        }
+      }
+      setVictoryExtractedFrames(frames);
+    };
+    img.src = victoryBgRemovedUrl;
+  }, [victoryBgRemovedUrl, victoryVerticalDividers, victoryHorizontalDividers]);
+
+  const handleVictoryVerticalDividerDrag = (index: number, e: React.MouseEvent) => {
+    e.preventDefault(); const imgRect = victorySpriteSheetRef.current?.getBoundingClientRect(); if (!imgRect) return;
+    const handleMouseMove = (ev: MouseEvent) => { const p = Math.max(0, Math.min(100, ((ev.clientX - imgRect.left) / imgRect.width) * 100)); const np = [...victoryVerticalDividers]; const min = index > 0 ? np[index-1]+2 : 2; const max = index < np.length-1 ? np[index+1]-2 : 98; np[index] = Math.max(min, Math.min(max, p)); setVictoryVerticalDividers(np); };
+    const handleMouseUp = () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    window.addEventListener("mousemove", handleMouseMove); window.addEventListener("mouseup", handleMouseUp);
+  };
+  const handleVictoryHorizontalDividerDrag = (index: number, e: React.MouseEvent) => {
+    e.preventDefault(); const imgRect = victorySpriteSheetRef.current?.getBoundingClientRect(); if (!imgRect) return;
+    const handleMouseMove = (ev: MouseEvent) => { const p = Math.max(0, Math.min(100, ((ev.clientY - imgRect.top) / imgRect.height) * 100)); const np = [...victoryHorizontalDividers]; const min = index > 0 ? np[index-1]+2 : 2; const max = index < np.length-1 ? np[index+1]-2 : 98; np[index] = Math.max(min, Math.min(max, p)); setVictoryHorizontalDividers(np); };
+    const handleMouseUp = () => { window.removeEventListener("mousemove", handleMouseMove); window.removeEventListener("mouseup", handleMouseUp); };
+    window.addEventListener("mousemove", handleMouseMove); window.addEventListener("mouseup", handleMouseUp);
+  };
+  const exportVictorySpriteSheet = () => { if (!victoryBgRemovedUrl) return; const l = document.createElement("a"); l.href = victoryBgRemovedUrl; l.download = "victory-sprite-sheet.png"; l.click(); };
+
   const exportAllFrames = () => {
-    walkExtractedFrames.forEach((frame, index) => {
-      const link = document.createElement("a");
-      link.href = frame.dataUrl;
-      link.download = `walk-frame-${index + 1}.png`;
-      link.click();
-    });
-    dodgeExtractedFrames.forEach((frame, index) => {
-      const link = document.createElement("a");
-      link.href = frame.dataUrl;
-      link.download = `dodge-frame-${index + 1}.png`;
-      link.click();
-    });
-    attackExtractedFrames.forEach((frame, index) => {
-      const link = document.createElement("a");
-      link.href = frame.dataUrl;
-      link.download = `attack-frame-${index + 1}.png`;
-      link.click();
-    });
-    idleExtractedFrames.forEach((frame, index) => {
-      const link = document.createElement("a");
-      link.href = frame.dataUrl;
-      link.download = `idle-frame-${index + 1}.png`;
-      link.click();
+    const allSets = [
+      { frames: walkExtractedFrames, prefix: "walk" },
+      { frames: dodgeExtractedFrames, prefix: "dodge" },
+      { frames: attackExtractedFrames, prefix: "attack" },
+      { frames: idleExtractedFrames, prefix: "idle" },
+      { frames: koExtractedFrames, prefix: "ko" },
+      { frames: damageExtractedFrames, prefix: "damage" },
+      { frames: victoryExtractedFrames, prefix: "victory" },
+    ];
+    allSets.forEach(({ frames, prefix }) => {
+      frames.forEach((frame, index) => {
+        const link = document.createElement("a");
+        link.href = frame.dataUrl;
+        link.download = `${prefix}-frame-${index + 1}.png`;
+        link.click();
+      });
     });
   };
 
@@ -1141,12 +1289,15 @@ export default function Home() {
     setTimeout(() => stitchAndDownload(entry.dodgeFrames, "dodge"), 200);
     setTimeout(() => stitchAndDownload(entry.attackFrames, "attack"), 400);
     setTimeout(() => stitchAndDownload(entry.idleFrames, "idle"), 600);
+    setTimeout(() => stitchAndDownload(entry.koFrames || [], "ko"), 800);
+    setTimeout(() => stitchAndDownload(entry.damageFrames || [], "damage"), 1000);
+    setTimeout(() => stitchAndDownload(entry.victoryFrames || [], "victory"), 1200);
   };
 
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const quickPreview = useCallback(async () => {
-    if (!walkSpriteSheetUrl || !dodgeSpriteSheetUrl || !attackSpriteSheetUrl || !idleSpriteSheetUrl) return;
+    if (!walkSpriteSheetUrl || !dodgeSpriteSheetUrl || !attackSpriteSheetUrl || !idleSpriteSheetUrl || !koSpriteSheetUrl || !damageSpriteSheetUrl || !victorySpriteSheetUrl) return;
     setIsLoadingPreview(true);
     setError(null);
 
@@ -1155,6 +1306,9 @@ export default function Home() {
       { name: "dodge", url: dodgeSpriteSheetUrl, cols: 2, rows: 2 },
       { name: "attack", url: attackSpriteSheetUrl, cols: 2, rows: 2 },
       { name: "idle", url: idleSpriteSheetUrl, cols: 2, rows: 2 },
+      { name: "ko", url: koSpriteSheetUrl, cols: 2, rows: 2 },
+      { name: "damage", url: damageSpriteSheetUrl, cols: 2, rows: 2 },
+      { name: "victory", url: victorySpriteSheetUrl, cols: 2, rows: 2 },
     ];
 
     try {
@@ -1187,12 +1341,11 @@ export default function Home() {
         )
       );
 
-      for (const { name, frames } of results) {
-        if (name === "walk") setWalkExtractedFrames(frames);
-        else if (name === "dodge") setDodgeExtractedFrames(frames);
-        else if (name === "attack") setAttackExtractedFrames(frames);
-        else if (name === "idle") setIdleExtractedFrames(frames);
-      }
+      const frameSetters: Record<string, (f: Frame[]) => void> = {
+        walk: setWalkExtractedFrames, dodge: setDodgeExtractedFrames, attack: setAttackExtractedFrames,
+        idle: setIdleExtractedFrames, ko: setKoExtractedFrames, damage: setDamageExtractedFrames, victory: setVictoryExtractedFrames,
+      };
+      for (const { name, frames } of results) frameSetters[name]?.(frames);
 
       setCompletedSteps((prev) => new Set(Array.from(prev).concat([1, 2])));
       setCurrentStep(6);
@@ -1217,6 +1370,9 @@ export default function Home() {
       dodgeFrames: dodgeExtractedFrames,
       attackFrames: attackExtractedFrames,
       idleFrames: idleExtractedFrames,
+      koFrames: koExtractedFrames,
+      damageFrames: damageExtractedFrames,
+      victoryFrames: victoryExtractedFrames,
     };
     const updated = [entry, ...archive];
     setArchive(updated);
@@ -1232,6 +1388,9 @@ export default function Home() {
     setDodgeExtractedFrames(entry.dodgeFrames);
     setAttackExtractedFrames(entry.attackFrames);
     setIdleExtractedFrames(entry.idleFrames);
+    setKoExtractedFrames(entry.koFrames || []);
+    setDamageExtractedFrames(entry.damageFrames || []);
+    setVictoryExtractedFrames(entry.victoryFrames || []);
     if (entry.characterImageUrl) setCharacterImageUrl(entry.characterImageUrl);
     setCompletedSteps(new Set([1, 2, 3, 4, 5, 6]));
     setCurrentStep(6);
@@ -1657,6 +1816,39 @@ export default function Home() {
                 {regeneratingSpriteSheet === "idle" ? "Regenerating..." : "Regen Idle"}
               </button>
             </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>K.O. (4 frames)</h4>
+              {koSpriteSheetUrl && (
+                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "ko" ? 0.5 : 1 }}>
+                  <img src={koSpriteSheetUrl} alt="KO sprite sheet" />
+                </div>
+              )}
+              <button className="btn btn-secondary" onClick={() => regenerateSpriteSheet("ko")} disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg} style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}>
+                {regeneratingSpriteSheet === "ko" ? "Regenerating..." : "Regen K.O."}
+              </button>
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Damage (4 frames)</h4>
+              {damageSpriteSheetUrl && (
+                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "damage" ? 0.5 : 1 }}>
+                  <img src={damageSpriteSheetUrl} alt="Damage sprite sheet" />
+                </div>
+              )}
+              <button className="btn btn-secondary" onClick={() => regenerateSpriteSheet("damage")} disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg} style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}>
+                {regeneratingSpriteSheet === "damage" ? "Regenerating..." : "Regen Damage"}
+              </button>
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Victory (4 frames)</h4>
+              {victorySpriteSheetUrl && (
+                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "victory" ? 0.5 : 1 }}>
+                  <img src={victorySpriteSheetUrl} alt="Victory sprite sheet" />
+                </div>
+              )}
+              <button className="btn btn-secondary" onClick={() => regenerateSpriteSheet("victory")} disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg} style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}>
+                {regeneratingSpriteSheet === "victory" ? "Regenerating..." : "Regen Victory"}
+              </button>
+            </div>
           </div>
 
           {(isGeneratingSpriteSheet || regeneratingSpriteSheet) && (
@@ -1749,6 +1941,30 @@ export default function Home() {
                 </div>
               )}
             </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>K.O.</h4>
+              {koBgRemovedUrl && (
+                <div className="image-preview" style={{ margin: 0 }}>
+                  <img src={koBgRemovedUrl} alt="KO sprite sheet with background removed" />
+                </div>
+              )}
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Damage</h4>
+              {damageBgRemovedUrl && (
+                <div className="image-preview" style={{ margin: 0 }}>
+                  <img src={damageBgRemovedUrl} alt="Damage sprite sheet with background removed" />
+                </div>
+              )}
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Victory</h4>
+              {victoryBgRemovedUrl && (
+                <div className="image-preview" style={{ margin: 0 }}>
+                  <img src={victoryBgRemovedUrl} alt="Victory sprite sheet with background removed" />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="button-group">
@@ -1800,6 +2016,9 @@ export default function Home() {
             >
               Idle
             </button>
+            <button className={`btn ${activeSheet === "ko" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveSheet("ko")}>K.O.</button>
+            <button className={`btn ${activeSheet === "damage" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveSheet("damage")}>Damage</button>
+            <button className={`btn ${activeSheet === "victory" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveSheet("victory")}>Victory</button>
           </div>
 
           {/* Walk frame extraction */}
@@ -2106,6 +2325,81 @@ export default function Home() {
             </>
           )}
 
+          {/* KO frame extraction */}
+          {activeSheet === "ko" && (
+            <>
+              <div className="frame-controls">
+                <label htmlFor="koGridCols">Columns:</label>
+                <input id="koGridCols" type="number" className="frame-count-input" min={1} max={8} value={koGridCols} onChange={(e) => setKoGridCols(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))} />
+                <label htmlFor="koGridRows" style={{ marginLeft: "1rem" }}>Rows:</label>
+                <input id="koGridRows" type="number" className="frame-count-input" min={1} max={8} value={koGridRows} onChange={(e) => setKoGridRows(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))} />
+                <span style={{ marginLeft: "1rem", color: "var(--text-tertiary)", fontSize: "0.875rem" }}>({koGridCols * koGridRows} frames)</span>
+              </div>
+              {koBgRemovedUrl && (
+                <div className="frame-extractor"><div className="sprite-sheet-container">
+                  <img ref={koSpriteSheetRef} src={koBgRemovedUrl} alt="KO sprite sheet" onLoad={(e) => { const img = e.target as HTMLImageElement; setKoSpriteSheetDimensions({ width: img.naturalWidth, height: img.naturalHeight }); }} />
+                  <div className="divider-overlay">
+                    {koVerticalDividers.map((pos, index) => (<div key={`kv-${index}`} className="divider-line divider-vertical" style={{ left: `${pos}%` }} onMouseDown={(e) => handleKoVerticalDividerDrag(index, e)} />))}
+                    {koHorizontalDividers.map((pos, index) => (<div key={`kh-${index}`} className="divider-line divider-horizontal" style={{ top: `${pos}%` }} onMouseDown={(e) => handleKoHorizontalDividerDrag(index, e)} />))}
+                  </div>
+                </div></div>
+              )}
+              {koExtractedFrames.length > 0 && (
+                <div className="frames-preview">{koExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`KO frame ${index + 1}`} /><div className="frame-label">K.O. {index + 1}</div></div>))}</div>
+              )}
+            </>
+          )}
+
+          {/* Damage frame extraction */}
+          {activeSheet === "damage" && (
+            <>
+              <div className="frame-controls">
+                <label htmlFor="damageGridCols">Columns:</label>
+                <input id="damageGridCols" type="number" className="frame-count-input" min={1} max={8} value={damageGridCols} onChange={(e) => setDamageGridCols(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))} />
+                <label htmlFor="damageGridRows" style={{ marginLeft: "1rem" }}>Rows:</label>
+                <input id="damageGridRows" type="number" className="frame-count-input" min={1} max={8} value={damageGridRows} onChange={(e) => setDamageGridRows(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))} />
+                <span style={{ marginLeft: "1rem", color: "var(--text-tertiary)", fontSize: "0.875rem" }}>({damageGridCols * damageGridRows} frames)</span>
+              </div>
+              {damageBgRemovedUrl && (
+                <div className="frame-extractor"><div className="sprite-sheet-container">
+                  <img ref={damageSpriteSheetRef} src={damageBgRemovedUrl} alt="Damage sprite sheet" onLoad={(e) => { const img = e.target as HTMLImageElement; setDamageSpriteSheetDimensions({ width: img.naturalWidth, height: img.naturalHeight }); }} />
+                  <div className="divider-overlay">
+                    {damageVerticalDividers.map((pos, index) => (<div key={`dv-${index}`} className="divider-line divider-vertical" style={{ left: `${pos}%` }} onMouseDown={(e) => handleDamageVerticalDividerDrag(index, e)} />))}
+                    {damageHorizontalDividers.map((pos, index) => (<div key={`dh-${index}`} className="divider-line divider-horizontal" style={{ top: `${pos}%` }} onMouseDown={(e) => handleDamageHorizontalDividerDrag(index, e)} />))}
+                  </div>
+                </div></div>
+              )}
+              {damageExtractedFrames.length > 0 && (
+                <div className="frames-preview">{damageExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`Damage frame ${index + 1}`} /><div className="frame-label">Damage {index + 1}</div></div>))}</div>
+              )}
+            </>
+          )}
+
+          {/* Victory frame extraction */}
+          {activeSheet === "victory" && (
+            <>
+              <div className="frame-controls">
+                <label htmlFor="victoryGridCols">Columns:</label>
+                <input id="victoryGridCols" type="number" className="frame-count-input" min={1} max={8} value={victoryGridCols} onChange={(e) => setVictoryGridCols(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))} />
+                <label htmlFor="victoryGridRows" style={{ marginLeft: "1rem" }}>Rows:</label>
+                <input id="victoryGridRows" type="number" className="frame-count-input" min={1} max={8} value={victoryGridRows} onChange={(e) => setVictoryGridRows(Math.max(1, Math.min(8, parseInt(e.target.value) || 2)))} />
+                <span style={{ marginLeft: "1rem", color: "var(--text-tertiary)", fontSize: "0.875rem" }}>({victoryGridCols * victoryGridRows} frames)</span>
+              </div>
+              {victoryBgRemovedUrl && (
+                <div className="frame-extractor"><div className="sprite-sheet-container">
+                  <img ref={victorySpriteSheetRef} src={victoryBgRemovedUrl} alt="Victory sprite sheet" onLoad={(e) => { const img = e.target as HTMLImageElement; setVictorySpriteSheetDimensions({ width: img.naturalWidth, height: img.naturalHeight }); }} />
+                  <div className="divider-overlay">
+                    {victoryVerticalDividers.map((pos, index) => (<div key={`vv-${index}`} className="divider-line divider-vertical" style={{ left: `${pos}%` }} onMouseDown={(e) => handleVictoryVerticalDividerDrag(index, e)} />))}
+                    {victoryHorizontalDividers.map((pos, index) => (<div key={`vh-${index}`} className="divider-line divider-horizontal" style={{ top: `${pos}%` }} onMouseDown={(e) => handleVictoryHorizontalDividerDrag(index, e)} />))}
+                  </div>
+                </div></div>
+              )}
+              {victoryExtractedFrames.length > 0 && (
+                <div className="frames-preview">{victoryExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`Victory frame ${index + 1}`} /><div className="frame-label">Victory {index + 1}</div></div>))}</div>
+              )}
+            </>
+          )}
+
           <div className="button-group">
             <button className="btn btn-secondary" onClick={() => setCurrentStep(3)}>
               ← Back
@@ -2206,12 +2500,25 @@ export default function Home() {
             <div>
               <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Idle Frames</h4>
               <div className="frames-preview" style={{ margin: 0, justifyContent: "flex-start" }}>
-                {idleExtractedFrames.map((frame, index) => (
-                  <div key={index} className="frame-thumb">
-                    <img src={frame.dataUrl} alt={`Idle ${index + 1}`} />
-                    <div className="frame-label">{index + 1}</div>
-                  </div>
-                ))}
+                {idleExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`Idle ${index + 1}`} /><div className="frame-label">{index + 1}</div></div>))}
+              </div>
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>K.O. Frames</h4>
+              <div className="frames-preview" style={{ margin: 0, justifyContent: "flex-start" }}>
+                {koExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`KO ${index + 1}`} /><div className="frame-label">{index + 1}</div></div>))}
+              </div>
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Damage Frames</h4>
+              <div className="frames-preview" style={{ margin: 0, justifyContent: "flex-start" }}>
+                {damageExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`Damage ${index + 1}`} /><div className="frame-label">{index + 1}</div></div>))}
+              </div>
+            </div>
+            <div>
+              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Victory Frames</h4>
+              <div className="frames-preview" style={{ margin: 0, justifyContent: "flex-start" }}>
+                {victoryExtractedFrames.map((frame, index) => (<div key={index} className="frame-thumb"><img src={frame.dataUrl} alt={`Victory ${index + 1}`} /><div className="frame-label">{index + 1}</div></div>))}
               </div>
             </div>
           </div>
@@ -2219,18 +2526,13 @@ export default function Home() {
           <div className="export-section">
             <h3 style={{ marginBottom: "0.75rem" }}>Export</h3>
             <div className="export-options">
-              <button className="btn btn-primary" onClick={exportWalkSpriteSheet}>
-                Walk Sheet
-              </button>
-              <button className="btn btn-primary" onClick={exportDodgeSpriteSheet}>
-                Dodge Sheet
-              </button>
-              <button className="btn btn-primary" onClick={exportAttackSpriteSheet}>
-                Attack Sheet
-              </button>
-              <button className="btn btn-primary" onClick={exportIdleSpriteSheet}>
-                Idle Sheet
-              </button>
+              <button className="btn btn-primary" onClick={exportWalkSpriteSheet}>Walk Sheet</button>
+              <button className="btn btn-primary" onClick={exportDodgeSpriteSheet}>Dodge Sheet</button>
+              <button className="btn btn-primary" onClick={exportAttackSpriteSheet}>Attack Sheet</button>
+              <button className="btn btn-primary" onClick={exportIdleSpriteSheet}>Idle Sheet</button>
+              <button className="btn btn-primary" onClick={exportKoSpriteSheet}>K.O. Sheet</button>
+              <button className="btn btn-primary" onClick={exportDamageSpriteSheet}>Damage Sheet</button>
+              <button className="btn btn-primary" onClick={exportVictorySpriteSheet}>Victory Sheet</button>
               <button className="btn btn-secondary" onClick={exportAllFrames}>
                 All Frames
               </button>
@@ -2372,6 +2674,9 @@ export default function Home() {
                 dodgeFrames={dodgeExtractedFrames}
                 attackFrames={attackExtractedFrames}
                 idleFrames={idleExtractedFrames}
+                koFrames={koExtractedFrames}
+                damageFrames={damageExtractedFrames}
+                victoryFrames={victoryExtractedFrames}
                 fps={fps}
                 customBackgroundLayers={backgroundMode === "custom" ? customBackgroundLayers : undefined}
               />
@@ -2379,7 +2684,7 @@ export default function Home() {
           </div>
 
           <div className="keyboard-hint" style={{ marginTop: "1rem" }}>
-            <kbd>A</kbd>/<kbd>←</kbd> walk left | <kbd>D</kbd>/<kbd>→</kbd> walk right | <kbd>Shift</kbd> dodge | <kbd>J</kbd> attack
+            <kbd>A</kbd>/<kbd>←</kbd> walk left | <kbd>D</kbd>/<kbd>→</kbd> walk right | <kbd>Shift</kbd> dodge | <kbd>J</kbd> attack | <kbd>G</kbd> damage | <kbd>K</kbd> K.O. | <kbd>R</kbd> reset K.O. | <kbd>V</kbd> victory
           </div>
 
           <div className="animation-controls" style={{ marginTop: "1rem" }}>
@@ -2420,10 +2725,19 @@ export default function Home() {
               setDodgeBgRemovedUrl(null);
               setAttackBgRemovedUrl(null);
               setIdleBgRemovedUrl(null);
+              setKoSpriteSheetUrl(null);
+              setDamageSpriteSheetUrl(null);
+              setVictorySpriteSheetUrl(null);
+              setKoBgRemovedUrl(null);
+              setDamageBgRemovedUrl(null);
+              setVictoryBgRemovedUrl(null);
               setWalkExtractedFrames([]);
               setDodgeExtractedFrames([]);
               setAttackExtractedFrames([]);
               setIdleExtractedFrames([]);
+              setKoExtractedFrames([]);
+              setDamageExtractedFrames([]);
+              setVictoryExtractedFrames([]);
               setCharacterPrompt("");
               setInputImageUrl("");
               setCharacterInputMode("text");
