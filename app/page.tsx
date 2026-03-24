@@ -566,40 +566,42 @@ export default function Home() {
   };
 
   const removeBackground = async () => {
-    const sheetUrls = [walkSpriteSheetUrl, dodgeSpriteSheetUrl, attackSpriteSheetUrl, idleSpriteSheetUrl, koSpriteSheetUrl, damageSpriteSheetUrl, victorySpriteSheetUrl];
-    if (sheetUrls.some((u) => !u)) return;
+    const sheets = [
+      { type: "walk", url: walkSpriteSheetUrl },
+      { type: "dodge", url: dodgeSpriteSheetUrl },
+      { type: "attack", url: attackSpriteSheetUrl },
+      { type: "idle", url: idleSpriteSheetUrl },
+      { type: "ko", url: koSpriteSheetUrl },
+      { type: "damage", url: damageSpriteSheetUrl },
+      { type: "victory", url: victorySpriteSheetUrl },
+    ];
+    if (sheets.some((s) => !s.url)) return;
 
     setError(null);
     setIsRemovingBg(true);
 
-    try {
-      const types = ["walk", "dodge", "attack", "idle", "ko", "damage", "victory"] as const;
-      const responses = await Promise.all(
-        sheetUrls.map((url) =>
-          fetch("/api/remove-background", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageUrl: url }),
-          })
-        )
-      );
-      const dataArr = await Promise.all(responses.map((r) => r.json()));
-      for (let i = 0; i < responses.length; i++) {
-        if (!responses[i].ok) throw new Error(dataArr[i].error || `Failed to remove ${types[i]} background`);
-      }
+    const bgSetters: Record<string, (url: string) => void> = {
+      walk: setWalkBgRemovedUrl, dodge: setDodgeBgRemovedUrl, attack: setAttackBgRemovedUrl,
+      idle: setIdleBgRemovedUrl, ko: setKoBgRemovedUrl, damage: setDamageBgRemovedUrl, victory: setVictoryBgRemovedUrl,
+    };
+    const dimSetters: Record<string, (d: { width: number; height: number }) => void> = {
+      walk: setWalkSpriteSheetDimensions, dodge: setDodgeSpriteSheetDimensions, attack: setAttackSpriteSheetDimensions,
+      idle: setIdleSpriteSheetDimensions, ko: setKoSpriteSheetDimensions, damage: setDamageSpriteSheetDimensions, victory: setVictorySpriteSheetDimensions,
+    };
 
-      const bgSetters: Record<string, (url: string) => void> = {
-        walk: setWalkBgRemovedUrl, dodge: setDodgeBgRemovedUrl, attack: setAttackBgRemovedUrl,
-        idle: setIdleBgRemovedUrl, ko: setKoBgRemovedUrl, damage: setDamageBgRemovedUrl, victory: setVictoryBgRemovedUrl,
-      };
-      const dimSetters: Record<string, (d: { width: number; height: number }) => void> = {
-        walk: setWalkSpriteSheetDimensions, dodge: setDodgeSpriteSheetDimensions, attack: setAttackSpriteSheetDimensions,
-        idle: setIdleSpriteSheetDimensions, ko: setKoSpriteSheetDimensions, damage: setDamageSpriteSheetDimensions, victory: setVictorySpriteSheetDimensions,
-      };
-      types.forEach((type, i) => {
-        bgSetters[type](dataArr[i].imageUrl);
-        dimSetters[type]({ width: dataArr[i].width, height: dataArr[i].height });
-      });
+    try {
+      // Process sequentially to avoid rate limiting
+      for (const sheet of sheets) {
+        const response = await fetch("/api/remove-background", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageUrl: sheet.url }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `Failed to remove ${sheet.type} background`);
+        bgSetters[sheet.type](data.imageUrl);
+        dimSetters[sheet.type]({ width: data.width, height: data.height });
+      }
       setCompletedSteps((prev) => new Set([...prev, 2]));
       setCurrentStep(3);
     } catch (err) {
