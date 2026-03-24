@@ -8,19 +8,21 @@ fal.config({
 
 const WALK_SPRITE_PROMPT = `Create a 4-frame pixel art walk cycle sprite sheet of this character.
 
-Arrange the 4 frames in a 2x2 grid on white background. The character is walking to the right.
+Arrange the 4 frames in a 2x2 grid on white background. The character is walking to the right. This is a FULL walk cycle showing BOTH legs alternating steps.
 
 Top row (frames 1-2):
-Frame 1 (top-left): Right leg forward, left leg back - stride position
-Frame 2 (top-right): Legs close together, passing/crossing - transition
+Frame 1 (top-left): RIGHT foot stepping forward, left foot behind - first stride
+Frame 2 (top-right): Both feet passing each other mid-step, weight centered - first transition
 
 Bottom row (frames 3-4):
-Frame 3 (bottom-left): Left leg forward, right leg back - opposite stride
-Frame 4 (bottom-right): Legs close together, passing/crossing - transition back
+Frame 3 (bottom-left): LEFT foot stepping forward, right foot behind - second stride (mirror of frame 1)
+Frame 4 (bottom-right): Both feet passing each other mid-step, weight centered - second transition (mirror of frame 2)
 
-Each frame shows a different phase of the walking motion. This creates a smooth looping walk cycle.
+IMPORTANT: Frames 1 and 3 must show OPPOSITE legs forward — this creates a proper two-step walk cycle, not a single repeated step. The loop goes: right step → pass → left step → pass → repeat.
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same face, same size, same outfit, same colors. Do NOT change the character's build, musculature, or any physical features. Only the leg positions change.
+
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
 const DODGE_SPRITE_PROMPT = `Create a 4-frame pixel art dodge animation sprite sheet of this character.
 
@@ -34,7 +36,11 @@ Bottom row (frames 3-4):
 Frame 3 (bottom-left): Hold - character stays low/aside at the dodge position for a beat
 Frame 4 (bottom-right): Recovery - straightening back up, returning to ready stance
 
-Keep the character in roughly the same horizontal position throughout — this is a reactive evasion, not a dash. Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
+Keep the character in roughly the same horizontal position throughout — this is a reactive evasion, not a dash.
+
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same face, same size, same outfit, same colors. Do NOT alter the character's build or facial features. Only the body pose changes.
+
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
 const ATTACK_SPRITE_PROMPT = `Create a 4-frame pixel art attack animation sprite sheet of this character.
 
@@ -48,7 +54,9 @@ Bottom row (frames 3-4):
 Frame 3 (bottom-left): Impact/peak - maximum extension of attack, weapon fully swung or spell at full power
 Frame 4 (bottom-right): Recovery - returning to ready stance
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right. Make the attack visually dynamic and exciting.`;
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same size, same face, same outfit, same colors. Do NOT make the character more muscular, larger, buffer, or change their physique in any way. The character's body build must remain IDENTICAL to the original. Only the pose and arm/weapon positions change for the attack motion.
+
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
 const KO_SPRITE_PROMPT = `Create a 4-frame pixel art knockout/death animation sprite sheet of this character.
 
@@ -62,7 +70,9 @@ Bottom row (frames 3-4):
 Frame 3 (bottom-left): Collapse - character nearly on the ground, body crumpling
 Frame 4 (bottom-right): Down - character flat on the ground, knocked out, motionless
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right. Make the defeat feel dramatic.`;
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same face, same size, same outfit, same colors. Do NOT alter the character's build or facial features. Only the body pose changes.
+
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
 const DAMAGE_SPRITE_PROMPT = `Create a 4-frame pixel art damage/hit reaction animation sprite sheet of this character.
 
@@ -76,21 +86,25 @@ Bottom row (frames 3-4):
 Frame 3 (bottom-left): Stagger - character still off-balance, hand on wound or bracing
 Frame 4 (bottom-right): Recovery - character shakes it off, returning to ready fighting stance
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right. Show clear pain but resilience.`;
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same face, same size, same outfit, same colors. Do NOT alter the character's build or facial features. Only the body pose changes.
 
-const VICTORY_SPRITE_PROMPT = `Create a 4-frame pixel art victory celebration animation sprite sheet of this character.
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
-Arrange the 4 frames in a 2x2 grid on white background. The character has won the fight and is celebrating.
+const VICTORY_SPRITE_PROMPT = `Create a 4-frame pixel art victory animation sprite sheet of this character.
+
+Arrange the 4 frames in a 2x2 grid on white background. The character has won the fight and shows a victory pose.
 
 Top row (frames 1-2):
-Frame 1 (top-left): Triumph start - character raises fist or weapon overhead, victorious expression
-Frame 2 (top-right): Celebration peak - full celebration pose, jumping or pumping fist, big smile or battle cry
+Frame 1 (top-left): Triumph start - character raises fist or weapon overhead
+Frame 2 (top-right): Victory pose peak - full power pose, fist pumped or weapon raised high
 
 Bottom row (frames 3-4):
-Frame 3 (bottom-left): Showoff - character flexes, poses proudly, or does a signature taunt
-Frame 4 (bottom-right): Cool down - character settles into a confident standing pose, still looking victorious
+Frame 3 (bottom-left): Confident stance - character stands tall, arms crossed or weapon resting on shoulder
+Frame 4 (bottom-right): Return to ready stance, still looking dominant
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right. Make the celebration feel earned and energetic.`;
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same size, same outfit, same colors. The facial FEATURES (eye shape, face shape, nose, mouth structure, scars, markings) must remain IDENTICAL to the original. The expression CAN change to fit the victory mood (e.g. a grin, a smirk), but the underlying face structure and features must not change. Do NOT redesign the face.
+
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
 const IDLE_SPRITE_PROMPT = `Create a 4-frame pixel art idle/breathing animation sprite sheet of this character.
 
@@ -106,7 +120,9 @@ Frame 4 (bottom-right): Exhale - returning to neutral, slight settle
 
 Keep movements SUBTLE - this is a gentle breathing/idle loop, not dramatic motion. Character should look alive but relaxed.
 
-Use detailed 32-bit pixel art style with proper shading and highlights. Same character design in all frames. Character facing right.`;
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same face, same size, same outfit, same colors. Do NOT alter the character's build or facial features.
+
+Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
 type SpriteType = "walk" | "dodge" | "attack" | "idle" | "ko" | "damage" | "victory";
 
