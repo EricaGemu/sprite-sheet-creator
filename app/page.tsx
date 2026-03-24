@@ -503,7 +503,7 @@ export default function Home() {
           fetch("/api/generate-sprite-sheet", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ characterImageUrl, type }),
+            body: JSON.stringify({ characterImageUrl, type, customPrompt: customPrompts[type] || undefined }),
           })
         )
       );
@@ -527,6 +527,12 @@ export default function Home() {
 
   type AnimationType = "walk" | "dodge" | "attack" | "idle" | "ko" | "damage" | "victory";
   const [regeneratingSpriteSheet, setRegeneratingSpriteSheet] = useState<AnimationType | null>(null);
+  const [customPrompts, setCustomPrompts] = useState<Record<AnimationType, string>>({
+    walk: "", dodge: "", attack: "", idle: "", ko: "", damage: "", victory: "",
+  });
+  const updateCustomPrompt = (type: AnimationType, value: string) => {
+    setCustomPrompts((prev) => ({ ...prev, [type]: value }));
+  };
 
   const regenerateSpriteSheet = async (type: AnimationType) => {
     if (!characterImageUrl) return;
@@ -538,7 +544,7 @@ export default function Home() {
       const response = await fetch("/api/generate-sprite-sheet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterImageUrl, type }),
+        body: JSON.stringify({ characterImageUrl, type, customPrompt: customPrompts[type] || undefined }),
       });
 
       const data = await response.json();
@@ -1801,103 +1807,40 @@ export default function Home() {
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Walk (4 frames)</h4>
-              {walkSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "walk" ? 0.5 : 1 }}>
-                  <img src={walkSpriteSheetUrl} alt="Walk sprite sheet" />
-                </div>
-              )}
-              <button
-                className="btn btn-secondary"
-                onClick={() => regenerateSpriteSheet("walk")}
-                disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg}
-                style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}
-              >
-                {regeneratingSpriteSheet === "walk" ? "Regenerating..." : "Regen Walk"}
-              </button>
-            </div>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Dodge (4 frames)</h4>
-              {dodgeSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "dodge" ? 0.5 : 1 }}>
-                  <img src={dodgeSpriteSheetUrl} alt="Dodge sprite sheet" />
-                </div>
-              )}
-              <button
-                className="btn btn-secondary"
-                onClick={() => regenerateSpriteSheet("dodge")}
-                disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg}
-                style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}
-              >
-                {regeneratingSpriteSheet === "dodge" ? "Regenerating..." : "Regen Dodge"}
-              </button>
-            </div>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Attack (4 frames)</h4>
-              {attackSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "attack" ? 0.5 : 1 }}>
-                  <img src={attackSpriteSheetUrl} alt="Attack sprite sheet" />
-                </div>
-              )}
-              <button
-                className="btn btn-secondary"
-                onClick={() => regenerateSpriteSheet("attack")}
-                disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg}
-                style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}
-              >
-                {regeneratingSpriteSheet === "attack" ? "Regenerating..." : "Regen Attack"}
-              </button>
-            </div>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Idle (4 frames)</h4>
-              {idleSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "idle" ? 0.5 : 1 }}>
-                  <img src={idleSpriteSheetUrl} alt="Idle sprite sheet" />
-                </div>
-              )}
-              <button
-                className="btn btn-secondary"
-                onClick={() => regenerateSpriteSheet("idle")}
-                disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg}
-                style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}
-              >
-                {regeneratingSpriteSheet === "idle" ? "Regenerating..." : "Regen Idle"}
-              </button>
-            </div>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>K.O. (4 frames)</h4>
-              {koSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "ko" ? 0.5 : 1 }}>
-                  <img src={koSpriteSheetUrl} alt="KO sprite sheet" />
-                </div>
-              )}
-              <button className="btn btn-secondary" onClick={() => regenerateSpriteSheet("ko")} disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg} style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}>
-                {regeneratingSpriteSheet === "ko" ? "Regenerating..." : "Regen K.O."}
-              </button>
-            </div>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Damage (4 frames)</h4>
-              {damageSpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "damage" ? 0.5 : 1 }}>
-                  <img src={damageSpriteSheetUrl} alt="Damage sprite sheet" />
-                </div>
-              )}
-              <button className="btn btn-secondary" onClick={() => regenerateSpriteSheet("damage")} disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg} style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}>
-                {regeneratingSpriteSheet === "damage" ? "Regenerating..." : "Regen Damage"}
-              </button>
-            </div>
-            <div>
-              <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Victory (4 frames)</h4>
-              {victorySpriteSheetUrl && (
-                <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === "victory" ? 0.5 : 1 }}>
-                  <img src={victorySpriteSheetUrl} alt="Victory sprite sheet" />
-                </div>
-              )}
-              <button className="btn btn-secondary" onClick={() => regenerateSpriteSheet("victory")} disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg} style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.5rem", width: "100%" }}>
-                {regeneratingSpriteSheet === "victory" ? "Regenerating..." : "Regen Victory"}
-              </button>
-            </div>
+            {([
+              { type: "walk" as AnimationType, label: "Walk", url: walkSpriteSheetUrl },
+              { type: "dodge" as AnimationType, label: "Dodge", url: dodgeSpriteSheetUrl },
+              { type: "attack" as AnimationType, label: "Attack", url: attackSpriteSheetUrl },
+              { type: "idle" as AnimationType, label: "Idle", url: idleSpriteSheetUrl },
+              { type: "ko" as AnimationType, label: "K.O.", url: koSpriteSheetUrl },
+              { type: "damage" as AnimationType, label: "Damage", url: damageSpriteSheetUrl },
+              { type: "victory" as AnimationType, label: "Victory", url: victorySpriteSheetUrl },
+            ]).map(({ type, label, url }) => (
+              <div key={type}>
+                <h4 style={{ marginBottom: "0.5rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>{label} (4 frames)</h4>
+                {url && (
+                  <div className="image-preview" style={{ margin: 0, opacity: regeneratingSpriteSheet === type ? 0.5 : 1 }}>
+                    <img src={url} alt={`${label} sprite sheet`} />
+                  </div>
+                )}
+                <input
+                  type="text"
+                  placeholder={`Custom ${label.toLowerCase()} prompt...`}
+                  value={customPrompts[type]}
+                  onChange={(e) => updateCustomPrompt(type, e.target.value)}
+                  spellCheck={false}
+                  style={{ width: "100%", fontSize: "0.72rem", padding: "0.25rem 0.4rem", marginTop: "0.4rem", background: "var(--bg-secondary)", border: "1px solid var(--border-color)", borderRadius: "4px", color: "var(--text-primary)" }}
+                />
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => regenerateSpriteSheet(type)}
+                  disabled={isGeneratingSpriteSheet || regeneratingSpriteSheet !== null || isRemovingBg}
+                  style={{ fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginTop: "0.35rem", width: "100%" }}
+                >
+                  {regeneratingSpriteSheet === type ? "Regenerating..." : `Regen ${label}`}
+                </button>
+              </div>
+            ))}
           </div>
 
           {(isGeneratingSpriteSheet || regeneratingSpriteSheet) && (
