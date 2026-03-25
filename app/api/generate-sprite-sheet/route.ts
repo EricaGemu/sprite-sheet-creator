@@ -42,19 +42,19 @@ CRITICAL: The character must look EXACTLY like the reference image — same body
 
 Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
-const ATTACK_SPRITE_PROMPT = `Create a 4-frame pixel art attack animation sprite sheet of this character.
+const ATTACK_SPRITE_PROMPT = `Create a 4-frame pixel art claw swipe attack animation sprite sheet of this character.
 
-Arrange the 4 frames in a 2x2 grid on white background. The character is performing an attack that fits their design - could be a sword slash, magic spell, punch, kick, or energy blast depending on what suits the character best.
+Arrange the 4 frames in a 2x2 grid on white background. The character is performing a fierce claw slash/swipe attack — NOT a punch, NOT a kick. The attack is a wild, aggressive claw strike with visible claw marks or slash trails.
 
 Top row (frames 1-2):
-Frame 1 (top-left): Wind-up/anticipation - character preparing to attack, pulling back weapon or gathering energy
-Frame 2 (top-right): Attack in motion - the strike or spell being unleashed
+Frame 1 (top-left): Wind-up - character raises arm/paw with claws extended, pulling back for the swipe
+Frame 2 (top-right): Swipe in motion - arm slashing forward diagonally, claw trails visible
 
 Bottom row (frames 3-4):
-Frame 3 (bottom-left): Impact/peak - maximum extension of attack, weapon fully swung or spell at full power
-Frame 4 (bottom-right): Recovery - returning to ready stance
+Frame 3 (bottom-left): Impact - claws at full extension, slash effect or claw marks visible in the air
+Frame 4 (bottom-right): Recovery - arm returning, settling back into ready stance
 
-CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same size, same face, same outfit, same colors. Do NOT make the character more muscular, larger, buffer, or change their physique in any way. The character's body build must remain IDENTICAL to the original. Only the pose and arm/weapon positions change for the attack motion.
+CRITICAL: The character must look EXACTLY like the reference image — same body proportions, same size, same face, same outfit, same colors. Do NOT make the character more muscular, larger, buffer, or change their physique in any way. The character's body build must remain IDENTICAL to the original. Only the pose and arm positions change for the claw swipe.
 
 Use detailed 32-bit pixel art style with proper shading and highlights. Character facing right.`;
 
